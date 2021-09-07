@@ -376,147 +376,213 @@ var SolidClient = (function (exports) {
 
   var link = Link;
 
-  function BlankNode$1 (id) {
-    this.value = id || ('b' + (++BlankNode$1.nextId));
-  }
+  class BlankNode$1 {
+    constructor (id) {
+      this.value = id || ('b' + (++BlankNode$1.nextId));
+    }
 
-  BlankNode$1.prototype.equals = function (other) {
-    return !!other && other.termType === this.termType && other.value === this.value
-  };
+    equals (other) {
+      return !!other && other.termType === this.termType && other.value === this.value
+    }
+  }
 
   BlankNode$1.prototype.termType = 'BlankNode';
 
   BlankNode$1.nextId = 0;
 
-  var blankNode$2 = BlankNode$1;
+  var BlankNode_1 = BlankNode$1;
 
-  function DefaultGraph$1 () {
-    this.value = '';
+  class DefaultGraph$1 {
+    equals (other) {
+      return !!other && other.termType === this.termType
+    }
   }
-
-  DefaultGraph$1.prototype.equals = function (other) {
-    return !!other && other.termType === this.termType
-  };
 
   DefaultGraph$1.prototype.termType = 'DefaultGraph';
+  DefaultGraph$1.prototype.value = '';
 
-  var defaultGraph$1 = DefaultGraph$1;
+  var DefaultGraph_1 = DefaultGraph$1;
 
-  function NamedNode$1 (iri) {
-    this.value = iri;
+  function fromTerm$1 (original) {
+    if (!original) {
+      return null
+    }
+
+    if (original.termType === 'BlankNode') {
+      return this.blankNode(original.value)
+    }
+
+    if (original.termType === 'DefaultGraph') {
+      return this.defaultGraph()
+    }
+
+    if (original.termType === 'Literal') {
+      return this.literal(original.value, original.language || this.namedNode(original.datatype.value))
+    }
+
+    if (original.termType === 'NamedNode') {
+      return this.namedNode(original.value)
+    }
+
+    if (original.termType === 'Quad') {
+      const subject = this.fromTerm(original.subject);
+      const predicate = this.fromTerm(original.predicate);
+      const object = this.fromTerm(original.object);
+      const graph = this.fromTerm(original.graph);
+
+      return this.quad(subject, predicate, object, graph)
+    }
+
+    if (original.termType === 'Variable') {
+      return this.variable(original.value)
+    }
+
+    throw new Error(`unknown termType ${original.termType}`)
   }
 
-  NamedNode$1.prototype.equals = function (other) {
-    return !!other && other.termType === this.termType && other.value === this.value
-  };
+  var fromTerm_1 = fromTerm$1;
+
+  class NamedNode$1 {
+    constructor (iri) {
+      this.value = iri;
+    }
+
+    equals (other) {
+      return !!other && other.termType === this.termType && other.value === this.value
+    }
+  }
 
   NamedNode$1.prototype.termType = 'NamedNode';
 
-  var namedNode$2 = NamedNode$1;
+  var NamedNode_1 = NamedNode$1;
 
-  function Literal$1 (value, language, datatype) {
-    this.value = value;
-    this.datatype = Literal$1.stringDatatype;
-    this.language = '';
+  class Literal$1 {
+    constructor (value, language, datatype) {
+      this.value = value;
+      this.datatype = Literal$1.stringDatatype;
+      this.language = '';
 
-    if (language) {
-      this.language = language;
-      this.datatype = Literal$1.langStringDatatype;
-    } else if (datatype) {
-      this.datatype = datatype;
+      if (language) {
+        this.language = language;
+        this.datatype = Literal$1.langStringDatatype;
+      } else if (datatype) {
+        this.datatype = datatype;
+      }
+    }
+
+    equals (other) {
+      return !!other && other.termType === this.termType && other.value === this.value &&
+        other.language === this.language && other.datatype.equals(this.datatype)
     }
   }
-
-  Literal$1.prototype.equals = function (other) {
-    return !!other && other.termType === this.termType && other.value === this.value &&
-      other.language === this.language && other.datatype.equals(this.datatype)
-  };
 
   Literal$1.prototype.termType = 'Literal';
-  Literal$1.langStringDatatype = new namedNode$2('http://www.w3.org/1999/02/22-rdf-syntax-ns#langString');
-  Literal$1.stringDatatype = new namedNode$2('http://www.w3.org/2001/XMLSchema#string');
 
-  var literal$2 = Literal$1;
+  Literal$1.langStringDatatype = new NamedNode_1('http://www.w3.org/1999/02/22-rdf-syntax-ns#langString');
+  Literal$1.stringDatatype = new NamedNode_1('http://www.w3.org/2001/XMLSchema#string');
 
-  function Quad$1 (subject, predicate, object, graph) {
-    this.subject = subject;
-    this.predicate = predicate;
-    this.object = object;
+  var Literal_1 = Literal$1;
 
-    if (graph) {
-      this.graph = graph;
-    } else {
-      this.graph = new defaultGraph$1();
+  class Quad$1 {
+    constructor (subject, predicate, object, graph) {
+      this.subject = subject;
+      this.predicate = predicate;
+      this.object = object;
+
+      if (graph) {
+        this.graph = graph;
+      } else {
+        this.graph = new DefaultGraph_1();
+      }
+    }
+
+    equals (other) {
+      // `|| !other.termType` is for backwards-compatibility with old factories without RDF* support.
+      return !!other && (other.termType === 'Quad' || !other.termType) &&
+        other.subject.equals(this.subject) && other.predicate.equals(this.predicate) &&
+        other.object.equals(this.object) && other.graph.equals(this.graph)
     }
   }
-
-  Quad$1.prototype.equals = function (other) {
-    // `|| !other.termType` is for backwards-compatibility with old factories without RDF* support.
-    return !!other && (other.termType === 'Quad' || !other.termType) &&
-      other.subject.equals(this.subject) && other.predicate.equals(this.predicate) &&
-      other.object.equals(this.object) && other.graph.equals(this.graph)
-  };
 
   Quad$1.prototype.termType = 'Quad';
   Quad$1.prototype.value = '';
 
-  var quad$2 = Quad$1;
+  var Quad_1 = Quad$1;
 
-  function Variable$1 (name) {
-    this.value = name;
+  class Variable$1 {
+    constructor (name) {
+      this.value = name;
+    }
+
+    equals (other) {
+      return !!other && other.termType === this.termType && other.value === this.value
+    }
   }
-
-  Variable$1.prototype.equals = function (other) {
-    return !!other && other.termType === this.termType && other.value === this.value
-  };
 
   Variable$1.prototype.termType = 'Variable';
 
-  var variable$1 = Variable$1;
+  var Variable_1 = Variable$1;
 
-  function DataFactory$2 () {}
+  function namedNode$1 (value) {
+    return new NamedNode_1(value)
+  }
 
-  DataFactory$2.namedNode = function (value) {
-    return new namedNode$2(value)
-  };
+  function blankNode$1 (value) {
+    return new BlankNode_1(value)
+  }
 
-  DataFactory$2.blankNode = function (value) {
-    return new blankNode$2(value)
-  };
-
-  DataFactory$2.literal = function (value, languageOrDatatype) {
+  function literal$1 (value, languageOrDatatype) {
     if (typeof languageOrDatatype === 'string') {
       if (languageOrDatatype.indexOf(':') === -1) {
-        return new literal$2(value, languageOrDatatype)
+        return new Literal_1(value, languageOrDatatype)
       }
 
-      return new literal$2(value, null, DataFactory$2.namedNode(languageOrDatatype))
+      return new Literal_1(value, null, DataFactory$2.namedNode(languageOrDatatype))
     }
 
-    return new literal$2(value, null, languageOrDatatype)
-  };
+    return new Literal_1(value, null, languageOrDatatype)
+  }
 
-  DataFactory$2.defaultGraph = function () {
+  function variable$1 (value) {
+    return new Variable_1(value)
+  }
+
+  function defaultGraph$1 () {
     return DataFactory$2.defaultGraphInstance
-  };
+  }
 
-  DataFactory$2.variable = function (value) {
-    return new variable$1(value)
-  };
-
-  DataFactory$2.triple = function (subject, predicate, object) {
+  function triple (subject, predicate, object) {
     return DataFactory$2.quad(subject, predicate, object)
+  }
+
+  function quad$1 (subject, predicate, object, graph) {
+    return new Quad_1(subject, predicate, object, graph || DataFactory$2.defaultGraphInstance)
+  }
+
+  function fromTerm (original) {
+    return fromTerm_1.call(DataFactory$2, original)
+  }
+
+  function fromQuad (original) {
+    return fromTerm_1.call(DataFactory$2, original)
+  }
+
+  const DataFactory$2 = {
+    namedNode: namedNode$1,
+    blankNode: blankNode$1,
+    literal: literal$1,
+    variable: variable$1,
+    defaultGraph: defaultGraph$1,
+    triple,
+    quad: quad$1,
+    fromTerm,
+    fromQuad,
+    defaultGraphInstance: new DefaultGraph_1()
   };
 
-  DataFactory$2.quad = function (subject, predicate, object, graph) {
-    return new quad$2(subject, predicate, object, graph || DataFactory$2.defaultGraphInstance)
-  };
+  var DataFactory_1 = DataFactory$2;
 
-  DataFactory$2.defaultGraphInstance = new defaultGraph$1();
-
-  var dataFactory = DataFactory$2;
-
-  var dataModel = dataFactory;
+  var dataModel = DataFactory_1;
 
   function isString$1 (s) {
     return typeof s === 'string' || s instanceof String
@@ -733,7 +799,7 @@ var SolidClient = (function (exports) {
         (isString$1(predicate) && !(predicateId = ids[predicate])) ||
         (isString$1(object) && !(objectId = ids[object]))
       ) {
-        return 0
+        return false
       }
 
       return this._countInIndex(graphItem.objects, objectId, subjectId, predicateId) === 1
@@ -969,11 +1035,11 @@ var SolidClient = (function (exports) {
 
   var DatasetCore_1 = DatasetCore;
 
-  function dataset$1 (quads) {
+  function dataset (quads) {
     return new DatasetCore_1(quads)
   }
 
-  var dataset_1 = Object.assign({ dataset: dataset$1 }, dataModel);
+  var dataset_1 = Object.assign({ dataset }, dataModel);
 
   var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -1565,7 +1631,7 @@ var SolidClient = (function (exports) {
   }));
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -1626,7 +1692,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -1651,7 +1717,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -1708,83 +1774,7 @@ var SolidClient = (function (exports) {
   };
 
   /**
-   * Copyright 2020 Inrupt Inc.
-   *
-   * Permission is hereby granted, free of charge, to any person obtaining a copy
-   * of this software and associated documentation files (the "Software"), to deal in
-   * the Software without restriction, including without limitation the rights to use,
-   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
-   * Software, and to permit persons to whom the Software is furnished to do so,
-   * subject to the following conditions:
-   *
-   * The above copyright notice and this permission notice shall be included in
-   * all copies or substantial portions of the Software.
-   *
-   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-   */
-  const dataset = dataset_1.dataset;
-  const { quad: quad$1, literal: literal$1, namedNode: namedNode$1, blankNode: blankNode$1 } = dataset_1;
-  // TODO: Our code should be able to deal with switching the DataFactory
-  //  implementation to that provided by '@rdfjs/dataset' (which is currently
-  //  @rdfjs/data-model) - but currently it seems that implementation:
-  //    - Doesn't treat capitalization of language tags correctly (i.e., according
-  //      to the RDF specs, they should be case-insensitive).
-  //    - Doesn't treat a string literal with an empty language tag of "" as an
-  //      xsd:langString, instead treating it as a xsd:string.
-  //      A fix for this would be here:
-  //      https://github.com/rdfjs-base/data-model/blob/ed59e75132ee4d8a3a2f58443ff6a4f792a97033/lib/literal.js#L8
-  //      ...changing this line to be:
-  //          if (language || language == "") {
-  //      But according to (https://w3c.github.io/rdf-dir-literal/langString.html)
-  //      it seems the language tag should be non-empty.
-  //  Our tests include specific checks for these behaviours (which is great), so
-  //  until '@rdfjs/dataset' (or our tests!) are fixed, we need to avoid it's
-  //  DataFactory.
-  //  Currently (Feb 2021), only 4 tests fail now for the reasons above.
-  /**
-   * @internal
-   */
-  const DataFactory$1 = { quad: quad$1, literal: literal$1, namedNode: namedNode$1, blankNode: blankNode$1 };
-  /**
-   * Clone a Dataset.
-   *
-   * Note that the Quads are not cloned, i.e. if you modify the Quads in the output Dataset, the Quads
-   * in the input Dataset will also be changed.
-   *
-   * @internal
-   * @param input Dataset to clone.
-   * @returns A new Dataset with the same Quads as `input`.
-   */
-  function clone(input) {
-      const output = dataset();
-      for (const quad of input) {
-          output.add(quad);
-      }
-      return output;
-  }
-  /**
-   * @internal
-   * @param input Dataset to clone.
-   * @param callback Function that takes a Quad, and returns a boolean indicating whether that Quad should be included in the cloned Dataset.
-   * @returns A new Dataset with the same Quads as `input`, excluding the ones for which `callback` returned `false`.
-   */
-  function filter(input, callback) {
-      const output = dataset();
-      for (const quad of input) {
-          if (callback(quad)) {
-              output.add(quad);
-          }
-      }
-      return output;
-  }
-
-  /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -1898,42 +1888,13 @@ var SolidClient = (function (exports) {
       let clonedResource;
       if (typeof resource.slice === "function") {
           // If given Resource is a File:
-          clonedResource = resource.slice();
-      }
-      else if (typeof resource.match === "function") {
-          // If given Resource is a SolidDataset:
-          // (We use the existince of a `match` method as a heuristic:)
-          clonedResource = clone(resource);
+          clonedResource = Object.assign(resource.slice(), Object.assign({}, resource));
       }
       else {
           // If it is just a plain object containing metadata:
           clonedResource = Object.assign({}, resource);
       }
-      return Object.assign(clonedResource, 
-      // Although the RDF/JS data structures use classes and mutation,
-      // we only attach atomic properties that we never mutate.
-      // Hence, `copyNonClassProperties` is a heuristic that allows us to only clone our own data
-      // structures, rather than references to the same mutable instances of RDF/JS data structures:
-      copyNonClassProperties(resource));
-  }
-  function copyNonClassProperties(source) {
-      const copy = {};
-      Object.keys(source).forEach((key) => {
-          const value = source[key];
-          if (typeof value !== "object" || value === null) {
-              copy[key] = value;
-              return;
-          }
-          // Ignore properties that are Class methods, we don't want to copy those
-          // across (e.g., copying over an RDF/JS `.add()` method would result in the
-          // former instance's implementation of `.add()` being invoked).
-          if (typeof value.constructor === "undefined" ||
-              value.constructor.name !== "Object") {
-              return;
-          }
-          copy[key] = value;
-      });
-      return copy;
+      return clonedResource;
   }
   /** @internal */
   function internal_isUnsuccessfulResponse(response) {
@@ -1941,7 +1902,90 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+  // TODO: These should be replaced by auto-generated constants,
+  //       if we can ensure that unused constants will be excluded from bundles.
+  /** @hidden */
+  const acl = {
+      Authorization: "http://www.w3.org/ns/auth/acl#Authorization",
+      AuthenticatedAgent: "http://www.w3.org/ns/auth/acl#AuthenticatedAgent",
+      accessTo: "http://www.w3.org/ns/auth/acl#accessTo",
+      agent: "http://www.w3.org/ns/auth/acl#agent",
+      agentGroup: "http://www.w3.org/ns/auth/acl#agentGroup",
+      agentClass: "http://www.w3.org/ns/auth/acl#agentClass",
+      default: "http://www.w3.org/ns/auth/acl#default",
+      defaultForNew: "http://www.w3.org/ns/auth/acl#defaultForNew",
+      mode: "http://www.w3.org/ns/auth/acl#mode",
+      origin: "http://www.w3.org/ns/auth/acl#origin",
+  };
+  /** @hidden */
+  const rdf$2 = {
+      type: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+  };
+  /** @hidden */
+  const ldp = {
+      BasicContainer: "http://www.w3.org/ns/ldp#BasicContainer",
+      Container: "http://www.w3.org/ns/ldp#Container",
+      Resource: "http://www.w3.org/ns/ldp#Resource",
+      contains: "http://www.w3.org/ns/ldp#contains",
+  };
+  /** @hidden */
+  const foaf = {
+      Agent: "http://xmlns.com/foaf/0.1/Agent",
+  };
+  /** @hidden */
+  const acp = {
+      AccessControlResource: "http://www.w3.org/ns/solid/acp#AccessControlResource",
+      Policy: "http://www.w3.org/ns/solid/acp#Policy",
+      AccessControl: "http://www.w3.org/ns/solid/acp#AccessControl",
+      Read: "http://www.w3.org/ns/solid/acp#Read",
+      Append: "http://www.w3.org/ns/solid/acp#Append",
+      Write: "http://www.w3.org/ns/solid/acp#Write",
+      /** @deprecated Removed from the ACP proposal, to be replaced by Matchers. */
+      Rule: "http://www.w3.org/ns/solid/acp#Rule",
+      Matcher: "http://www.w3.org/ns/solid/acp#Matcher",
+      accessControl: "http://www.w3.org/ns/solid/acp#accessControl",
+      apply: "http://www.w3.org/ns/solid/acp#apply",
+      applyMembers: "http://www.w3.org/ns/solid/acp#applyMembers",
+      allow: "http://www.w3.org/ns/solid/acp#allow",
+      deny: "http://www.w3.org/ns/solid/acp#deny",
+      allOf: "http://www.w3.org/ns/solid/acp#allOf",
+      anyOf: "http://www.w3.org/ns/solid/acp#anyOf",
+      noneOf: "http://www.w3.org/ns/solid/acp#noneOf",
+      access: "http://www.w3.org/ns/solid/acp#access",
+      accessMembers: "http://www.w3.org/ns/solid/acp#accessMembers",
+      agent: "http://www.w3.org/ns/solid/acp#agent",
+      group: "http://www.w3.org/ns/solid/acp#group",
+      client: "http://www.w3.org/ns/solid/acp#client",
+      PublicAgent: "http://www.w3.org/ns/solid/acp#PublicAgent",
+      AuthenticatedAgent: "http://www.w3.org/ns/solid/acp#AuthenticatedAgent",
+      CreatorAgent: "http://www.w3.org/ns/solid/acp#CreatorAgent",
+  };
+  /** @hidden */
+  const solid = {
+      PublicOidcClient: "http://www.w3.org/ns/solid/terms#PublicOidcClient",
+  };
+
+  /**
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -1976,8 +2020,18 @@ var SolidClient = (function (exports) {
   async function getResourceInfo(url, options = internal_defaultFetchOptions) {
       const config = Object.assign(Object.assign({}, internal_defaultFetchOptions), options);
       const response = await config.fetch(url, { method: "HEAD" });
+      return responseToResourceInfo(response);
+  }
+  /**
+   * Parse Solid metadata from a Response obtained by fetching a Resource from a Solid Pod,
+   *
+   * @param response A Fetch API Response. See {@link https://developer.mozilla.org/en-US/docs/Web/API/Response MDN}.
+   * @returns Resource metadata readable by functions such as [[getSourceUrl]].
+   * @hidden This interface is not exposed yet until we've tried it out in practice.
+   */
+  function responseToResourceInfo(response) {
       if (internal_isUnsuccessfulResponse(response)) {
-          throw new FetchError(`Fetching the metadata of the Resource at [${url}] failed: [${response.status}] [${response.statusText}].`, response);
+          throw new FetchError(`Fetching the metadata of the Resource at [${response.url}] failed: [${response.status}] [${response.statusText}].`, response);
       }
       const resourceInfo = internal_parseResourceInfo(response);
       return { internal_resourceInfo: resourceInfo };
@@ -2035,7 +2089,7 @@ var SolidClient = (function (exports) {
       if (!hasServerResourceInfo(resource)) {
           return null;
       }
-      const podOwners = (_a = resource.internal_resourceInfo.linkedResources["http://www.w3.org/ns/solid/terms#podOwner"]) !== null && _a !== void 0 ? _a : [];
+      const podOwners = (_a = getLinkedResourceUrlAll(resource)["http://www.w3.org/ns/solid/terms#podOwner"]) !== null && _a !== void 0 ? _a : [];
       return podOwners.length === 1 ? podOwners[0] : null;
   }
   /**
@@ -2060,6 +2114,59 @@ var SolidClient = (function (exports) {
       return podOwner === webId;
   }
   /**
+   * Get the URLs of Resources linked to the given Resource.
+   *
+   * Solid servers can link Resources to each other. For example, in servers
+   * implementing Web Access Control, Resources can have an Access Control List
+   * Resource linked to it via the `acl` relation.
+   *
+   * @param resource A Resource fetched from a Solid Pod.
+   * @returns The URLs of Resources linked to the given Resource, indexed by the key that links them.
+   * @since 1.7.0
+   */
+  function getLinkedResourceUrlAll(resource) {
+      return resource.internal_resourceInfo.linkedResources;
+  }
+  /**
+   * Get what access the current user has to the given Resource.
+   *
+   * This function can tell you what access the current user has for the given
+   * Resource, allowing you to e.g. determine that changes to it will be rejected
+   * before attempting to do so.
+   * Additionally, for servers adhering to the Web Access Control specification,
+   * it will tell you what access unauthenticated users have to the given Resource.
+   *
+   * @param resource A Resource fetched from a Solid Pod.
+   * @returns What access the current user and, if supported by the server, unauthenticated users have to the given Resource.
+   * @since 1.7.0
+   */
+  function getEffectiveAccess(resource) {
+      var _a, _b, _c, _d, _e, _f, _g;
+      if (typeof resource.internal_resourceInfo.permissions === "object") {
+          return {
+              user: {
+                  read: resource.internal_resourceInfo.permissions.user.read,
+                  append: resource.internal_resourceInfo.permissions.user.append,
+                  write: resource.internal_resourceInfo.permissions.user.write,
+              },
+              public: {
+                  read: resource.internal_resourceInfo.permissions.public.read,
+                  append: resource.internal_resourceInfo.permissions.public.append,
+                  write: resource.internal_resourceInfo.permissions.public.write,
+              },
+          };
+      }
+      const linkedResourceUrls = getLinkedResourceUrlAll(resource);
+      return {
+          user: {
+              read: (_b = (_a = linkedResourceUrls[acp.allow]) === null || _a === void 0 ? void 0 : _a.includes(acp.Read)) !== null && _b !== void 0 ? _b : false,
+              append: (_e = (((_c = linkedResourceUrls[acp.allow]) === null || _c === void 0 ? void 0 : _c.includes(acp.Append)) ||
+                  ((_d = linkedResourceUrls[acp.allow]) === null || _d === void 0 ? void 0 : _d.includes(acp.Write)))) !== null && _e !== void 0 ? _e : false,
+              write: (_g = (_f = linkedResourceUrls[acp.allow]) === null || _f === void 0 ? void 0 : _f.includes(acp.Write)) !== null && _g !== void 0 ? _g : false,
+          },
+      };
+  }
+  /**
    * Extends the regular JavaScript error object with access to the status code and status message.
    * @since 1.2.0
    */
@@ -2077,7 +2184,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -2112,6 +2219,15 @@ var SolidClient = (function (exports) {
    *
    * Retrieves a file from a URL and returns the file as a blob.
    *
+   * For example:
+   *
+   * ```
+   * const fileBlob = await getFile("https://pod.example.com/some/file", { fetch: fetch });
+   * ```
+   *
+   * For additional examples, see
+   * [Read/Write Files](https://docs.inrupt.com/developer-tools/javascript/client-libraries/tutorial/read-write-files/#retrieve-a-file).
+   *
    * @param url The URL of the file to return
    * @param options Fetching options: a custom fetcher and/or headers.
    * @returns The file as a blob.
@@ -2135,6 +2251,15 @@ var SolidClient = (function (exports) {
    * ```
    * Deletes a file at a given URL.
    *
+   * For example:
+   *
+   * ```
+   * await deleteFile( "https://pod.example.com/some/file", { fetch: fetch });
+   * ```
+   *
+   * For additional examples, see
+   * [Read/Write Files](https://docs.inrupt.com/developer-tools/javascript/client-libraries/tutorial/read-write-files/#delete-a-file).
+   *
    * @param file The URL of the file to delete
    */
   async function deleteFile(file, options = defaultGetFileOptions) {
@@ -2151,32 +2276,48 @@ var SolidClient = (function (exports) {
    * ```{note} This function is still experimental and subject to change, even in a non-major release.
    * ```
    *
-   * Saves a file in a folder associated with the given URL. The final filename may or may
-   * not be the given `slug`.
+   * Saves a file in an existing folder/Container associated with the given URL.
    *
-   * If you know the [media type](https://developer.mozilla.org/en-US/docs/Glossary/MIME_type)
-   * of the file you are attempting to save, then you should provide this in the
-   * `options` parameter. For example, if you know your file is a JPEG image,
-   * then you should provide the media type `image/jpeg`. If you don't know, or
-   * don't provide a media type, a default type of `application/octet-stream` will
-   * be applied (which indicates that the file should be regarded as pure binary
-   * data).
+   * For example:
    *
-   * The Container at the given URL should already exist; if it does not, the returned Promise will
-   * be rejected. You can initialise it first using [[createContainerAt]], or directly save the file
-   * at the desired location using [[overwriteFile]].
+   * ```
+   * const savedFile = await saveFileInContainer(
+   *   "https://pod.example.com/some/existing/container/",
+   *   new Blob(["This is a plain piece of text"], { type: "plain/text" }),
+   *   { slug: "suggestedFileName.txt", contentType: "text/plain", fetch: fetch }
+   * );
+   * ```
    *
-   * This function is primarily useful if the current user does not have access to change existing files in
-   * a Container, but is allowed to add new files; in other words, they have Append, but not Write
-   * access to a Container. This is useful in situations where someone wants to allow others to,
-   * for example, send notifications to their Pod, but not to view or delete existing notifications.
-   * You can pass a suggestion for the new Resource's name, but the server may decide to give it
-   * another name — for example, if a Resource with that name already exists inside the given
-   * Container.
-   * If the user does have access to write directly to a given location, [[overwriteFile]]
-   * will do the job just fine, and does not require the parent Container to exist in advance.
+   * For additional example, see
+   * [Read/Write Files](https://docs.inrupt.com/developer-tools/javascript/client-libraries/tutorial/read-write-files/#save-a-file-into-an-existing-container).
    *
-   * @param folderUrl The URL of the folder where the new file is saved.
+   * In the `options` parameter,
+   *
+   * - You can suggest a file name in the `slug` field.  However, the Solid
+   *   Server may or may not use the suggested `slug` as the file name.
+   *
+   * - *Recommended:* You can specify the [media type](https://developer.mozilla.org/en-US/docs/Glossary/MIME_type)
+   *   of the file in the `contentType`.  If unspecified, the function uses the default type of
+   *   `application/octet-stream`, indicating a binary data file.
+   *
+   * The function saves a file into an *existing* Container. If the
+   * Container does not exist, either:
+   * - Create the Container first using [[createContainerAt]], and then
+   *   use the function, or
+   * - Use [[overwriteFile]] to save the file. [[overwriteFile]] creates
+   *   the Containers in the saved file path as needed.
+   *
+   * Users who only have `Append` but not `Write` access to a Container
+   * can use [[saveFileInContainer]] to save new files to the Container.
+   * That is, [[saveFileInContainer]] is useful in situations where users
+   * can add new files to a Container but not change existing files in
+   * the Container, such as users given access to send notifications to
+   * another's Pod but not to view or delete existing notifications in that Pod.
+   *
+   * Users with `Write` access to the given folder/Container may prefer to
+   * use [[overwriteFile]].
+   *
+   * @param folderUrl The URL of an existing folder where the new file is saved.
    * @param file The file to be written.
    * @param options Additional parameters for file creation (e.g. a slug).
    * @returns A Promise that resolves to the saved file, if available, or `null` if the current user does not have Read access to the newly-saved file. It rejects if saving fails.
@@ -2206,24 +2347,36 @@ var SolidClient = (function (exports) {
    * ```{note} This function is still experimental and subject to change, even in a non-major release.
    * ```
    *
-   * Saves a file at a given URL, replacing any previous content.
+   * Saves a file at a given URL. If a file already exists at the URL,
+   * the function overwrites the existing file.
    *
-   * The Solid server will create any intermediary Containers that do not exist yet, so they do not
-   * need to be created in advance. For example, if the target URL is
-   * https://example.pod/container/resource and https://example.pod/container/ does not exist yet,
-   * it will exist after this function resolves successfully.
+   * For example:
    *
-   * If you know the [media type](https://developer.mozilla.org/en-US/docs/Glossary/MIME_type)
-   * of the file you are attempting to write, then you should provide this in the
-   * `options` parameter. For example, if you know your file is a JPEG image,
-   * then you should provide the media type `image/jpeg`. If you don't know, or
-   * don't provide a media type, a default type of `application/octet-stream` will
-   * be applied (which indicates that the file should be regarded as pure binary
-   * data).
+   * ```
+   * const savedFile = await overwriteFile(
+   *   "https://pod.example.com/some/container/myFile.txt",
+   *   new Blob(["This is a plain piece of text"], { type: "plain/text" }),
+   *   { contentType: "text/plain", fetch: fetch }
+   * );
+   * ```
+   *
+   * For additional example, see
+   * [Read/Write Files](https://docs.inrupt.com/developer-tools/javascript/client-libraries/tutorial/read-write-files/#write-a-file-to-a-specific-url).
+   *
+   * *Recommended:* In the `options` parameter, you can specify the
+   * [media type](https://developer.mozilla.org/en-US/docs/Glossary/MIME_type)
+   * of the file in the `contentType`.  If unspecified, the function uses the default type of
+   * `application/octet-stream`, indicating a binary data file.
+   *
+   * When saving a file with [[overwriteFile]], the Solid server creates any
+   * intermediary Containers as needed; i.e., the Containers do not
+   * need to be created in advance. For example, when saving a file to the target URL of
+   * https://example.pod/container/resource, if https://example.pod/container/ does not exist,
+   * the container is created as part of the save.
    *
    * @param fileUrl The URL where the file is saved.
    * @param file The file to be written.
-   * @param options Additional parameters for file creation (e.g. a slug, or media type).
+   * @param options Additional parameters for file creation (e.g., media type).
    */
   async function overwriteFile(fileUrl, file, options = defaultGetFileOptions) {
       const fileUrlString = internal_toIriString(fileUrl);
@@ -2320,7 +2473,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -2339,160 +2492,35 @@ var SolidClient = (function (exports) {
    * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
    * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    */
-  // TODO: These should be replaced by auto-generated constants,
-  //       if we can ensure that unused constants will be excluded from bundles.
-  /** @hidden */
-  const acl = {
-      Authorization: "http://www.w3.org/ns/auth/acl#Authorization",
-      AuthenticatedAgent: "http://www.w3.org/ns/auth/acl#AuthenticatedAgent",
-      accessTo: "http://www.w3.org/ns/auth/acl#accessTo",
-      agent: "http://www.w3.org/ns/auth/acl#agent",
-      agentGroup: "http://www.w3.org/ns/auth/acl#agentGroup",
-      agentClass: "http://www.w3.org/ns/auth/acl#agentClass",
-      default: "http://www.w3.org/ns/auth/acl#default",
-      defaultForNew: "http://www.w3.org/ns/auth/acl#defaultForNew",
-      mode: "http://www.w3.org/ns/auth/acl#mode",
-      origin: "http://www.w3.org/ns/auth/acl#origin",
-  };
-  /** @hidden */
-  const rdf$2 = {
-      type: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-  };
-  /** @hidden */
-  const ldp = {
-      BasicContainer: "http://www.w3.org/ns/ldp#BasicContainer",
-      Container: "http://www.w3.org/ns/ldp#Container",
-      Resource: "http://www.w3.org/ns/ldp#Resource",
-      contains: "http://www.w3.org/ns/ldp#contains",
-  };
-  /** @hidden */
-  const foaf = {
-      Agent: "http://xmlns.com/foaf/0.1/Agent",
-  };
-  /** @hidden */
-  const acp = {
-      Policy: "http://www.w3.org/ns/solid/acp#Policy",
-      AccessControl: "http://www.w3.org/ns/solid/acp#AccessControl",
-      Read: "http://www.w3.org/ns/solid/acp#Read",
-      Append: "http://www.w3.org/ns/solid/acp#Append",
-      Write: "http://www.w3.org/ns/solid/acp#Write",
-      Rule: "http://www.w3.org/ns/solid/acp#Rule",
-      accessControl: "http://www.w3.org/ns/solid/acp#accessControl",
-      apply: "http://www.w3.org/ns/solid/acp#apply",
-      applyMembers: "http://www.w3.org/ns/solid/acp#applyMembers",
-      allow: "http://www.w3.org/ns/solid/acp#allow",
-      deny: "http://www.w3.org/ns/solid/acp#deny",
-      allOf: "http://www.w3.org/ns/solid/acp#allOf",
-      anyOf: "http://www.w3.org/ns/solid/acp#anyOf",
-      noneOf: "http://www.w3.org/ns/solid/acp#noneOf",
-      access: "http://www.w3.org/ns/solid/acp#access",
-      accessMembers: "http://www.w3.org/ns/solid/acp#accessMembers",
-      agent: "http://www.w3.org/ns/solid/acp#agent",
-      group: "http://www.w3.org/ns/solid/acp#group",
-      client: "http://www.w3.org/ns/solid/acp#client",
-      PublicAgent: "http://www.w3.org/ns/solid/acp#PublicAgent",
-      AuthenticatedAgent: "http://www.w3.org/ns/solid/acp#AuthenticatedAgent",
-      CreatorAgent: "http://www.w3.org/ns/solid/acp#CreatorAgent",
-  };
-  /** @hidden */
-  const solid = {
-      PublicOidcClient: "http://www.w3.org/ns/solid/terms#PublicOidcClient",
-  };
-
+  dataset_1.dataset;
+  const localNodeSkolemPrefix = "https://inrupt.com/.well-known/sdk-local-node/";
   /**
-   * Copyright 2020 Inrupt Inc.
-   *
-   * Permission is hereby granted, free of charge, to any person obtaining a copy
-   * of this software and associated documentation files (the "Software"), to deal in
-   * the Software without restriction, including without limitation the rights to use,
-   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
-   * Software, and to permit persons to whom the Software is furnished to do so,
-   * subject to the following conditions:
-   *
-   * The above copyright notice and this permission notice shall be included in
-   * all copies or substantial portions of the Software.
-   *
-   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   * Runtime freezing might be too much overhead;
+   * if so, this function allows us to replace it by a function
+   * that merely marks its input as Readonly<> for static analysis.
    */
-  /**
-   * @param quads Triples that should be serialised to Turtle
-   * @internal Utility method for internal use; not part of the public API.
-   */
-  async function triplesToTurtle(quads) {
-      const n3 = await loadN3();
-      const format = "text/turtle";
-      const writer = new n3.Writer({ format: format });
-      // Remove any potentially lingering references to Named Graphs in Quads;
-      // they'll be determined by the URL the Turtle will be sent to:
-      const triples = quads.map((quad) => DataFactory$1.quad(quad.subject, quad.predicate, quad.object, undefined));
-      writer.addQuads(triples);
-      const writePromise = new Promise((resolve, reject) => {
-          writer.end((error, result) => {
-              /* istanbul ignore if [n3.js doesn't actually pass an error nor a result, apparently: https://github.com/rdfjs/N3.js/blob/62682e48c02d8965b4d728cb5f2cbec6b5d1b1b8/src/N3Writer.js#L290] */
-              if (error) {
-                  return reject(error);
-              }
-              resolve(result);
-          });
-      });
-      const rawTurtle = await writePromise;
-      return rawTurtle;
+  const freeze = Object.freeze;
+  function isLocalNodeIri(iri) {
+      return (iri.substring(0, localNodeSkolemPrefix.length) === localNodeSkolemPrefix);
   }
-  /**
-   * @param raw Turtle that should be parsed into Triples
-   * @internal Utility method for internal use; not part of the public API.
-   */
-  async function turtleToTriples(raw, resourceIri) {
-      const format = "text/turtle";
-      const n3 = await loadN3();
-      const parser = new n3.Parser({ format: format, baseIRI: resourceIri });
-      const parsingPromise = new Promise((resolve, reject) => {
-          const parsedTriples = [];
-          parser.parse(raw, (error, triple, _prefixes) => {
-              if (error) {
-                  return reject(error);
-              }
-              if (triple) {
-                  parsedTriples.push(triple);
-              }
-              else {
-                  resolve(parsedTriples);
-              }
-          });
-      });
-      return parsingPromise;
+  function getLocalNodeName(localNodeIri) {
+      return localNodeIri.substring(localNodeSkolemPrefix.length);
   }
-  async function loadN3() {
-      // When loaded via Webpack or another bundler that looks at the `modules` field in package.json,
-      // N3 serves up ES modules with named exports.
-      // However, when it is loaded in Node, it serves up a CommonJS module, which, when imported from
-      // a Node ES module, is in the shape of a default export that is an object with all the named
-      // exports as its properties.
-      // This means that if we were to import the default module, our code would fail in Webpack,
-      // whereas if we imported the named exports, our code would fail in Node.
-      // As a workaround, we use a dynamic import. This way, we can use the same syntax in every
-      // environment, where the differences between the environments are in whether the returned object
-      // includes a `default` property that contains all exported functions, or whether those functions
-      // are available on the returned object directly. We can then respond to those different
-      // situations at runtime.
-      // Unfortunately, that does mean that tree shaking will not work until N3 also provides ES modules
-      // for Node, or adds a default export for Webpack. See
-      // https://github.com/rdfjs/N3.js/issues/196
-      const n3Module = await Promise.resolve().then(function () { return index; });
-      /* istanbul ignore if: the package provides named exports in the unit test environment */
-      if (typeof n3Module.default !== "undefined") {
-          return n3Module.default;
-      }
-      return n3Module;
+  function getLocalNodeIri(localNodeName) {
+      return `${localNodeSkolemPrefix}${localNodeName}`;
+  }
+  function isBlankNodeId(value) {
+      return typeof value === "string" && value.substring(0, 2) === "_:";
+  }
+  function getBlankNodeValue(blankNodeId) {
+      return blankNodeId.substring(2);
+  }
+  function getBlankNodeId(blankNode) {
+      return `_:${blankNode.value}`;
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -2518,6 +2546,8 @@ var SolidClient = (function (exports) {
   const xmlSchemaTypes = {
       boolean: "http://www.w3.org/2001/XMLSchema#boolean",
       dateTime: "http://www.w3.org/2001/XMLSchema#dateTime",
+      date: "http://www.w3.org/2001/XMLSchema#date",
+      time: "http://www.w3.org/2001/XMLSchema#time",
       decimal: "http://www.w3.org/2001/XMLSchema#decimal",
       integer: "http://www.w3.org/2001/XMLSchema#integer",
       string: "http://www.w3.org/2001/XMLSchema#string",
@@ -2548,6 +2578,108 @@ var SolidClient = (function (exports) {
       else {
           return null;
       }
+  }
+  /**
+   * @internal
+   * @param value Value to serialise.
+   * @returns String representation of `value` in UTC.
+   * @see https://www.w3.org/TR/xmlschema-2/#time-lexical-repr
+   */
+  function serializeTime(value) {
+      let millisecondString;
+      let timezoneString;
+      if (value.millisecond) {
+          if (value.millisecond < 10) {
+              millisecondString = "00" + value.millisecond;
+          }
+          else if (value.millisecond < 100) {
+              millisecondString = "0" + value.millisecond;
+          }
+          else {
+              millisecondString = value.millisecond;
+          }
+      }
+      if (typeof value.timezoneHourOffset === "number") {
+          const timezoneFormatted = Math.abs(value.timezoneHourOffset) < 10
+              ? "0" + Math.abs(value.timezoneHourOffset)
+              : Math.abs(value.timezoneHourOffset);
+          timezoneString =
+              value.timezoneHourOffset >= 0
+                  ? "+" + timezoneFormatted
+                  : "-" + timezoneFormatted;
+          if (value.timezoneMinuteOffset) {
+              timezoneString =
+                  timezoneString +
+                      ":" +
+                      (value.timezoneMinuteOffset < 10
+                          ? "0" + value.timezoneMinuteOffset
+                          : value.timezoneMinuteOffset);
+          }
+          else {
+              timezoneString = timezoneString + ":00";
+          }
+      }
+      return ((value.hour < 10 ? "0" + value.hour : value.hour) +
+          ":" +
+          (value.minute < 10 ? "0" + value.minute : value.minute) +
+          ":" +
+          (value.second < 10 ? "0" + value.second : value.second) +
+          (value.millisecond ? "." + millisecondString : "") +
+          (timezoneString ? timezoneString : ""));
+  }
+  /**
+   * @internal
+   * @param literalString Value to deserialise.
+   * @returns Deserialized time, or null if the given value is not a valid serialised datetime.
+   * @see https://www.w3.org/TR/xmlschema-2/#time-lexical-repr
+   */
+  function deserializeTime(literalString) {
+      // Time in the format described at
+      // https://www.w3.org/TR/xmlschema-2/#time-lexical-repr
+      // \d\d:\d\d:\d\d - Two digits for the hour, minute and second, respectively, separated by a `:`.
+      //                  Example: "13:37:42".
+      // (\.\d+)? - Optionally a `.` followed by one or more digits representing milliseconds.
+      //            Example: ".1337".
+      // (Z|(\+|-)\d\d:\d\d) - The letter Z indicating UTC, or a `+` or `-` followed by two digits for
+      //                       the hour offset and two for the minute offset, separated by a `:`.
+      //                       Example: "+13:37".
+      const timeRegEx = /\d\d:\d\d:\d\d(\.\d+)?(Z|(\+|-)\d\d:\d\d)?/;
+      if (!timeRegEx.test(literalString)) {
+          return null;
+      }
+      const [timeString, timezoneString] = splitTimeFromTimezone(literalString);
+      const [hourString, minuteString, timeRest] = timeString.split(":");
+      let utcHours = Number.parseInt(hourString, 10);
+      let utcMinutes = Number.parseInt(minuteString, 10);
+      const [secondString, optionalMillisecondString] = timeRest.split(".");
+      const utcSeconds = Number.parseInt(secondString, 10);
+      const utcMilliseconds = optionalMillisecondString
+          ? Number.parseInt(optionalMillisecondString, 10)
+          : undefined;
+      if (utcMinutes >= 60) {
+          utcHours = utcHours + 1;
+          utcMinutes = utcMinutes - 60;
+      }
+      const deserializedTime = {
+          hour: utcHours,
+          minute: utcMinutes,
+          second: utcSeconds,
+      };
+      if (typeof utcMilliseconds === "number") {
+          deserializedTime.millisecond = utcMilliseconds;
+      }
+      if (typeof timezoneString === "string") {
+          const [hourOffset, minuteOffset] = getTimezoneOffsets(timezoneString);
+          if (typeof hourOffset !== "number" ||
+              hourOffset > 24 ||
+              typeof minuteOffset !== "number" ||
+              minuteOffset > 59) {
+              return null;
+          }
+          deserializedTime.timezoneHourOffset = hourOffset;
+          deserializedTime.timezoneMinuteOffset = minuteOffset;
+      }
+      return deserializedTime;
   }
   /**
    * @internal
@@ -2584,7 +2716,7 @@ var SolidClient = (function (exports) {
       // (Z|(\+|-)\d\d:\d\d) - The letter Z indicating UTC, or a `+` or `-` followed by two digits for
       //                       the hour offset and two for the minute offset, separated by a `:`.
       //                       Example: "+13:37".
-      const datetimeRegEx = /-?\d{4,}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|(\+|-)\d\d:\d\d)/;
+      const datetimeRegEx = /-?\d{4,}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|(\+|-)\d\d:\d\d)?/;
       if (!datetimeRegEx.test(literalString)) {
           return null;
       }
@@ -2599,7 +2731,9 @@ var SolidClient = (function (exports) {
       const utcMonth = Number.parseInt(monthString, 10) - 1;
       const utcDate = Number.parseInt(dayString, 10);
       const [timeString, timezoneString] = splitTimeFromTimezone(rest);
-      const [hourOffset, minuteOffset] = getTimezoneOffsets(timezoneString);
+      const [hourOffset, minuteOffset] = typeof timezoneString === "string"
+          ? getTimezoneOffsets(timezoneString)
+          : [0, 0];
       const [hourString, minuteString, timeRest] = timeString.split(":");
       const utcHours = Number.parseInt(hourString, 10) + hourOffset;
       const utcMinutes = Number.parseInt(minuteString, 10) + minuteOffset;
@@ -2622,6 +2756,65 @@ var SolidClient = (function (exports) {
       return date;
   }
   /**
+   * @internal
+   * @param value Value to serialise.
+   * @returns String representation of `value`.
+   * @see https://www.w3.org/TR/xmlschema-2/#date-lexical-representation
+   */
+  function serializeDate(value) {
+      const year = value.getFullYear();
+      const month = value.getMonth() + 1;
+      const day = value.getDate();
+      const [_, timezone] = splitTimeFromTimezone(value.toISOString());
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}${timezone}`;
+  }
+  /**
+   * @internal
+   * @param value Value to deserialise.
+   * @returns Deserialized datetime, or null if the given value is not a valid serialised datetime.
+   * @see https://www.w3.org/TR/xmlschema-2/#date-lexical-representation
+   */
+  function deserializeDate(literalString) {
+      // Date in the format described at
+      // https://www.w3.org/TR/xmlschema-2/#date-lexical-representation
+      // (without constraints on the value).
+      // -? - An optional leading `-`.
+      // \d{4,}- - Four or more digits followed by a `-` representing the year. Example: "3000-".
+      // \d\d-\d\d - Two digits representing the month and two representing the day of the month,
+      //             separated by a `-`. Example: "11-03".
+      // (Z|(\+|-)\d\d:\d\d) - Optionally, the letter Z indicating UTC, or a `+` or `-` followed by two digits for
+      //                       the hour offset and two for the minute offset, separated by a `:`.
+      //                       Example: "+13:37".
+      const dateRegEx = /-?\d{4,}-\d\d-\d\d(Z|(\+|-)\d\d:\d\d)?/;
+      if (!dateRegEx.test(literalString)) {
+          return null;
+      }
+      const signedDateString = literalString;
+      // The date string can optionally be prefixed with `-`,
+      // in which case the year is negative:
+      const [yearMultiplier, dateString] = signedDateString.charAt(0) === "-"
+          ? [-1, signedDateString.substring(1)]
+          : [1, signedDateString];
+      const [yearString, monthString, dayAndTimezoneString] = dateString.split("-");
+      const dayString = dayAndTimezoneString.length > 2
+          ? dayAndTimezoneString.substring(0, 2)
+          : dayAndTimezoneString;
+      const utcFullYear = Number.parseInt(yearString, 10) * yearMultiplier;
+      const utcMonth = Number.parseInt(monthString, 10) - 1;
+      const utcDate = Number.parseInt(dayString, 10);
+      const hour = 12;
+      // setting at 12:00 avoids all timezones
+      const date = new Date(Date.UTC(utcFullYear, utcMonth, utcDate, hour));
+      // For the year, values from 0 to 99 map to the years 1900 to 1999. Since the serialisation
+      // always writes out the years fully, we should correct this to actually map to the years 0 to 99.
+      // See
+      // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/Date#Individual_date_and_time_component_values
+      if (utcFullYear >= 0 && utcFullYear < 100) {
+          date.setUTCFullYear(date.getUTCFullYear() - 1900);
+      }
+      return date;
+  }
+  /**
    * @param timeString An XML Schema time string.
    * @returns A tuple [timeString, timezoneString].
    * @see https://www.w3.org/TR/xmlschema-2/#time-lexical-repr
@@ -2632,6 +2825,9 @@ var SolidClient = (function (exports) {
       }
       const splitOnPlus = timeString.split("+");
       const splitOnMinus = timeString.split("-");
+      if (splitOnPlus.length === 1 && splitOnMinus.length === 1) {
+          return [splitOnPlus[0], undefined];
+      }
       return splitOnPlus.length > splitOnMinus.length
           ? [splitOnPlus[0], "+" + splitOnPlus[1]]
           : [splitOnMinus[0], "-" + splitOnMinus[1]];
@@ -2734,22 +2930,7 @@ var SolidClient = (function (exports) {
    * @returns Whether `value` is a Node with no known IRI yet.
    */
   function isLocalNode(value) {
-      return (isTerm(value) &&
-          value.termType === "BlankNode" &&
-          typeof value.internal_name === "string");
-  }
-  /**
-   * Construct a new LocalNode.
-   *
-   * @internal Library users shouldn't need to be exposed to LocalNodes.
-   * @param name Name to identify this node by.
-   * @returns A LocalNode whose name will be resolved when it is persisted to a Pod.
-   */
-  function getLocalNode(name) {
-      const localNode = Object.assign(DataFactory$1.blankNode(), {
-          internal_name: name,
-      });
-      return localNode;
+      return isNamedNode$1(value) && isLocalNodeIri(value.value);
   }
   /**
    * Ensure that a given value is a valid URL.
@@ -2776,70 +2957,12 @@ var SolidClient = (function (exports) {
       return true;
   }
   /**
-   * Ensure that a given value is a Named Node.
-   *
-   * If the given parameter is a Named Node already, it will be returned as-is. If it is a string, it
-   * will check whether it is a valid IRI. If not, it will throw an error; otherwise a Named Node
-   * representing the given IRI will be returned.
-   *
-   * @internal Library users shouldn't need to be exposed to raw NamedNodes.
-   * @param iri The IRI that should be converted into a Named Node, if it isn't one yet.
-   */
-  function asNamedNode(iri) {
-      if (!internal_isValidUrl(iri)) {
-          throw new ValidUrlExpectedError(iri);
-      }
-      if (isNamedNode$1(iri)) {
-          return iri;
-      }
-      return DataFactory$1.namedNode(iri);
-  }
-  /**
-   * Check whether two current- or potential NamedNodes are/will be equal.
-   *
-   * @internal Utility method; library users should not need to interact with LocalNodes directly.
-   */
-  function isEqual(node1, node2, options = {}) {
-      if (isNamedNode$1(node1) && isNamedNode$1(node2)) {
-          return node1.equals(node2);
-      }
-      if (isLocalNode(node1) && isLocalNode(node2)) {
-          return node1.internal_name === node2.internal_name;
-      }
-      if (typeof options.resourceIri === "undefined") {
-          // If we don't know what IRI to resolve the LocalNode to,
-          // we cannot conclude that it is equal to the NamedNode's full IRI:
-          return false;
-      }
-      const namedNode1 = isNamedNode$1(node1)
-          ? node1
-          : resolveIriForLocalNode(node1, options.resourceIri);
-      const namedNode2 = isNamedNode$1(node2)
-          ? node2
-          : resolveIriForLocalNode(node2, options.resourceIri);
-      return namedNode1.equals(namedNode2);
-  }
-  /**
-   * @internal Utility method; library users should not need to interact with LocalNodes directly.
-   * @param quad The Quad to resolve LocalNodes in.
-   * @param resourceIri The IRI of the Resource to resolve the LocalNodes against.
-   */
-  function resolveIriForLocalNodes(quad, resourceIri) {
-      const subject = isLocalNode(quad.subject)
-          ? resolveIriForLocalNode(quad.subject, resourceIri)
-          : quad.subject;
-      const object = isLocalNode(quad.object)
-          ? resolveIriForLocalNode(quad.object, resourceIri)
-          : quad.object;
-      return Object.assign(Object.assign({}, quad), { subject: subject, object: object });
-  }
-  /**
    * @internal Utility method; library users should not need to interact with LocalNodes directly.
    * @param localNode The LocalNode to resolve to a NamedNode.
    * @param resourceIri The Resource in which the Node will be saved.
    */
   function resolveIriForLocalNode(localNode, resourceIri) {
-      return DataFactory$1.namedNode(resolveLocalIri(localNode.internal_name, resourceIri));
+      return DataFactory$1.namedNode(resolveLocalIri(getLocalNodeName(localNode.value), resourceIri));
   }
   /**
    * @internal API for internal use only.
@@ -2855,22 +2978,9 @@ var SolidClient = (function (exports) {
       thingIri.hash = name;
       return thingIri.href;
   }
-  /**
-   * This error is thrown when a given value is not a proper URL.
-   */
-  class ValidUrlExpectedError extends SolidClientError {
-      constructor(receivedValue) {
-          const value = isNamedNode$1(receivedValue)
-              ? receivedValue.value
-              : receivedValue;
-          const message = `Expected a valid URL, but received: [${value}].`;
-          super(message);
-          this.receivedValue = value;
-      }
-  }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -2889,26 +2999,403 @@ var SolidClient = (function (exports) {
    * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
    * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    */
+  const DataFactory$1 = dataModel;
+  function addRdfJsQuadToDataset(dataset, quad, quadParseOptions = {}) {
+      var _a;
+      const supportedGraphTypes = [
+          "NamedNode",
+          "DefaultGraph",
+      ];
+      if (!supportedGraphTypes.includes(quad.graph.termType)) {
+          throw new Error(`Cannot parse Quads with nodes of type [${quad.graph.termType}] as their Graph node.`);
+      }
+      const graphId = quad.graph.termType === "DefaultGraph" ? "default" : quad.graph.value;
+      const graph = (_a = dataset.graphs[graphId]) !== null && _a !== void 0 ? _a : {};
+      return freeze(Object.assign(Object.assign({}, dataset), { graphs: freeze(Object.assign(Object.assign({}, dataset.graphs), { [graphId]: addRdfJsQuadToGraph(graph, quad, quadParseOptions) })) }));
+  }
+  function addRdfJsQuadToGraph(graph, quad, quadParseOptions) {
+      var _a;
+      const supportedSubjectTypes = [
+          "NamedNode",
+          "BlankNode",
+      ];
+      if (!supportedSubjectTypes.includes(quad.subject.termType)) {
+          throw new Error(`Cannot parse Quads with nodes of type [${quad.subject.termType}] as their Subject node.`);
+      }
+      const subjectIri = quad.subject.termType === "BlankNode"
+          ? `_:${quad.subject.value}`
+          : quad.subject.value;
+      const subject = (_a = graph[subjectIri]) !== null && _a !== void 0 ? _a : {
+          type: "Subject",
+          url: subjectIri,
+          predicates: {},
+      };
+      return freeze(Object.assign(Object.assign({}, graph), { [subjectIri]: addRdfJsQuadToSubject(subject, quad, quadParseOptions) }));
+  }
+  function addRdfJsQuadToSubject(subject, quad, quadParseOptions) {
+      return freeze(Object.assign(Object.assign({}, subject), { predicates: addRdfJsQuadToPredicates(subject.predicates, quad, quadParseOptions) }));
+  }
+  function addRdfJsQuadToPredicates(predicates, quad, quadParseOptions) {
+      var _a;
+      const supportedPredicateTypes = [
+          "NamedNode",
+      ];
+      if (!supportedPredicateTypes.includes(quad.predicate.termType)) {
+          throw new Error(`Cannot parse Quads with nodes of type [${quad.predicate.termType}] as their Predicate node.`);
+      }
+      const predicateIri = quad.predicate.value;
+      const objects = (_a = predicates[predicateIri]) !== null && _a !== void 0 ? _a : {};
+      return freeze(Object.assign(Object.assign({}, predicates), { [predicateIri]: addRdfJsQuadToObjects(objects, quad, quadParseOptions) }));
+  }
+  function addRdfJsQuadToObjects(objects, quad, quadParseOptions) {
+      var _a, _b, _c, _d, _e, _f, _g, _h;
+      if (quad.object.termType === "NamedNode") {
+          const namedNodes = freeze([
+              ...((_a = objects.namedNodes) !== null && _a !== void 0 ? _a : []),
+              quad.object.value,
+          ]);
+          return freeze(Object.assign(Object.assign({}, objects), { namedNodes: namedNodes }));
+      }
+      if (quad.object.termType === "Literal") {
+          if (quad.object.datatype.value === xmlSchemaTypes.langString) {
+              const locale = quad.object.language.toLowerCase();
+              const thisLocaleStrings = freeze([
+                  ...((_c = (_b = objects.langStrings) === null || _b === void 0 ? void 0 : _b[locale]) !== null && _c !== void 0 ? _c : []),
+                  quad.object.value,
+              ]);
+              const langStrings = freeze(Object.assign(Object.assign({}, ((_d = objects.langStrings) !== null && _d !== void 0 ? _d : {})), { [locale]: thisLocaleStrings }));
+              return freeze(Object.assign(Object.assign({}, objects), { langStrings: langStrings }));
+          }
+          // If the Object is a non-langString Literal
+          const thisTypeValues = freeze([
+              ...((_f = (_e = objects.literals) === null || _e === void 0 ? void 0 : _e[quad.object.datatype.value]) !== null && _f !== void 0 ? _f : []),
+              quad.object.value,
+          ]);
+          const literals = freeze(Object.assign(Object.assign({}, ((_g = objects.literals) !== null && _g !== void 0 ? _g : {})), { [quad.object.datatype.value]: thisTypeValues }));
+          return freeze(Object.assign(Object.assign({}, objects), { literals: literals }));
+      }
+      if (quad.object.termType === "BlankNode") {
+          const blankNodePredicates = getPredicatesForBlankNode(quad.object, quadParseOptions);
+          const blankNodes = freeze([
+              ...((_h = objects.blankNodes) !== null && _h !== void 0 ? _h : []),
+              blankNodePredicates,
+          ]);
+          return freeze(Object.assign(Object.assign({}, objects), { blankNodes: blankNodes }));
+      }
+      throw new Error(`Objects of type [${quad.object.termType}] are not supported.`);
+  }
+  function getPredicatesForBlankNode(node, quadParseOptions) {
+      var _a, _b;
+      const chainBlankNodes = (_a = quadParseOptions.chainBlankNodes) !== null && _a !== void 0 ? _a : [];
+      if (chainBlankNodes.find((chainBlankNode) => chainBlankNode.equals(node)) ===
+          undefined) {
+          // If this Blank Node is not used to provide nested values for another Subject,
+          // just return its identifier.
+          // That identifier will also be listed among the Subjects in the Graph.
+          return getBlankNodeId(node);
+      }
+      /* istanbul ignore next: If there are chain nodes, there will always be other Quads, so the `?? []` can't be reached: */
+      const quads = (_b = quadParseOptions.otherQuads) !== null && _b !== void 0 ? _b : [];
+      const quadsWithNodeAsSubject = quads.filter((quad) => quad.subject.equals(node));
+      // First add the Quads with regular Objects
+      const predicates = quadsWithNodeAsSubject
+          .filter((quad) => !isBlankNode$1(quad.object))
+          .reduce((predicatesAcc, quad) => {
+          var _a;
+          const supportedPredicateTypes = [
+              "NamedNode",
+          ];
+          if (!supportedPredicateTypes.includes(quad.predicate.termType)) {
+              throw new Error(`Cannot parse Quads with nodes of type [${quad.predicate.termType}] as their Predicate node.`);
+          }
+          const objects = (_a = predicatesAcc[quad.predicate.value]) !== null && _a !== void 0 ? _a : {};
+          return freeze(Object.assign(Object.assign({}, predicatesAcc), { [quad.predicate.value]: addRdfJsQuadToObjects(objects, quad, quadParseOptions) }));
+      }, {});
+      // And then also add the Quads that have another Blank Node as the Object
+      // in addition to the Blank Node `node` as the Subject:
+      const blankNodeObjectQuads = quadsWithNodeAsSubject.filter((quad) => isBlankNode$1(quad.object));
+      return blankNodeObjectQuads.reduce((predicatesAcc, quad) => {
+          var _a, _b;
+          const supportedPredicateTypes = [
+              "NamedNode",
+          ];
+          if (!supportedPredicateTypes.includes(quad.predicate.termType)) {
+              throw new Error(`Cannot parse Quads with nodes of type [${quad.predicate.termType}] as their Predicate node.`);
+          }
+          /* istanbul ignore next: The `?? {}` doesn't get hit; presumably it's initialised above. */
+          const objects = (_a = predicatesAcc[quad.predicate.value]) !== null && _a !== void 0 ? _a : {};
+          /* istanbul ignore next: The `?? []` doesn't get hit; presumably it's initialised above. */
+          const blankNodes = (_b = objects.blankNodes) !== null && _b !== void 0 ? _b : [];
+          return freeze(Object.assign(Object.assign({}, predicatesAcc), { 
+              // The BlankNode assertions are valid because we filtered on BlankNodes above:
+              [quad.predicate.value]: Object.assign(Object.assign({}, objects), { blankNodes: [
+                      ...blankNodes,
+                      getPredicatesForBlankNode(quad.object, quadParseOptions),
+                  ] }) }));
+      }, predicates);
+  }
   /**
-   * Verify whether a given value has the required DatasetCore properties.
+   * Given an array of Quads, returns all Blank Nodes that are used in a single chain of Nodes.
    *
-   * @param input Value that might or might not be a DatasetCore
-   * @returns Whether `input` provides the properties prescribed by the RDF/JS Dataset spec 1.0.
-   * @hidden This is an internal convenience function.
+   * This allows you to obtain which Blank Nodes are involved in e.g. RDF lists.
+   * This is useful because those can be represented as nested data that will have
+   * a deterministic structure, whereas a representation of Blank Nodes that
+   * create a cycle or are re-used will need ad-hoc, non-deterministic identifiers
+   * to allow for representation without inifinite nesting.
    */
-  function internal_isDatasetCore(input) {
-      return (typeof input === "object" &&
-          input !== null &&
-          typeof input.size === "number" &&
-          typeof input.add === "function" &&
-          typeof input.delete === "function" &&
-          typeof input.has === "function" &&
-          typeof input.match === "function" &&
-          Array.from(input).length === input.size);
+  function getChainBlankNodes(quads) {
+      // All Blank Nodes that occur in Subject position:
+      const blankNodeSubjects = quads
+          .map((quad) => quad.subject)
+          .filter(isBlankNode$1);
+      // All Blank Nodes that occur in Object position:
+      const blankNodeObjects = quads.map((quad) => quad.object).filter(isBlankNode$1);
+      // Makes sure that all given Nodes are the same,
+      // which will be used to verify that a set of Quads all have the same Subject:
+      function everyNodeTheSame(nodes) {
+          // This could potentially be made more performant by mapping every term
+          // to their value and using native JS comparisons, assuming every node is
+          // either a Blank or a Named Node.
+          return nodes.every((otherNode) => nodes.every((anotherNode) => otherNode.equals(anotherNode)));
+      }
+      // Get all Blank Nodes that are part of a cycle in the graph:
+      const cycleBlankNodes = [];
+      blankNodeObjects.forEach((blankNodeObject) => {
+          cycleBlankNodes.push(...getCycleBlankNodes(blankNodeObject, quads));
+      });
+      // Get Blank Nodes that are used to provide nested values for a single Subject,
+      // which we'll represent as nested values as well
+      // (this allows us to avoid generating a non-deterministic, ad-hoc identifier
+      // for those Blank Nodes).
+      // We'll do this by taking all Blank Nodes in the given Quads...
+      const chainBlankNodes = blankNodeSubjects
+          .concat(blankNodeObjects)
+          .filter((blankNode) => {
+          // ....removing those Blank Nodes that are part of a cycle...
+          if (cycleBlankNodes.some((cycleBlankNode) => cycleBlankNode.equals(blankNode))) {
+              return false;
+          }
+          // ...and then returning only those Blank Nodes that only occur in the
+          // Object position for a single Subject, i.e. that are part of a single
+          // chain:
+          const subjectsWithThisNodeAsObject = quads
+              .filter((quad) => quad.object.equals(blankNode))
+              .map((quad) => quad.subject);
+          return (subjectsWithThisNodeAsObject.length > 0 &&
+              everyNodeTheSame(subjectsWithThisNodeAsObject));
+      });
+      return chainBlankNodes;
+  }
+  function toRdfJsQuads(dataset, options = {}) {
+      var _a;
+      const quads = [];
+      const dataFactory = (_a = options.dataFactory) !== null && _a !== void 0 ? _a : dataModel;
+      Object.keys(dataset.graphs).forEach((graphIri) => {
+          const graph = dataset.graphs[graphIri];
+          const graphNode = graphIri === "default"
+              ? dataFactory.defaultGraph()
+              : dataFactory.namedNode(graphIri);
+          Object.keys(graph).forEach((subjectIri) => {
+              const predicates = graph[subjectIri].predicates;
+              const subjectNode = isBlankNodeId(subjectIri)
+                  ? dataFactory.blankNode(getBlankNodeValue(subjectIri))
+                  : dataFactory.namedNode(subjectIri);
+              quads.push(...subjectToRdfJsQuads(predicates, subjectNode, graphNode, options));
+          });
+      });
+      return quads;
+  }
+  function subjectToRdfJsQuads(predicates, subjectNode, graphNode, options = {}) {
+      var _a;
+      const quads = [];
+      const dataFactory = (_a = options.dataFactory) !== null && _a !== void 0 ? _a : dataModel;
+      Object.keys(predicates).forEach((predicateIri) => {
+          var _a, _b, _c, _d;
+          const predicateNode = dataFactory.namedNode(predicateIri);
+          const langStrings = (_a = predicates[predicateIri].langStrings) !== null && _a !== void 0 ? _a : {};
+          const namedNodes = (_b = predicates[predicateIri].namedNodes) !== null && _b !== void 0 ? _b : [];
+          const literals = (_c = predicates[predicateIri].literals) !== null && _c !== void 0 ? _c : {};
+          const blankNodes = (_d = predicates[predicateIri].blankNodes) !== null && _d !== void 0 ? _d : [];
+          const literalTypes = Object.keys(literals);
+          literalTypes.forEach((typeIri) => {
+              const typeNode = dataFactory.namedNode(typeIri);
+              const literalValues = literals[typeIri];
+              literalValues.forEach((value) => {
+                  const literalNode = dataFactory.literal(value, typeNode);
+                  quads.push(dataFactory.quad(subjectNode, predicateNode, literalNode, graphNode));
+              });
+          });
+          const locales = Object.keys(langStrings);
+          locales.forEach((locale) => {
+              const localeValues = langStrings[locale];
+              localeValues.forEach((value) => {
+                  const langStringNode = dataFactory.literal(value, locale);
+                  quads.push(dataFactory.quad(subjectNode, predicateNode, langStringNode, graphNode));
+              });
+          });
+          namedNodes.forEach((namedNodeIri) => {
+              const node = dataFactory.namedNode(namedNodeIri);
+              quads.push(dataFactory.quad(subjectNode, predicateNode, node, graphNode));
+          });
+          blankNodes.forEach((blankNodeIdOrPredicates) => {
+              if (isBlankNodeId(blankNodeIdOrPredicates)) {
+                  const blankNode = dataFactory.blankNode(getBlankNodeValue(blankNodeIdOrPredicates));
+                  quads.push(dataFactory.quad(subjectNode, predicateNode, blankNode, graphNode));
+              }
+              else {
+                  const node = dataFactory.blankNode();
+                  const blankNodeObjectQuad = dataFactory.quad(subjectNode, predicateNode, node, graphNode);
+                  const blankNodeSubjectQuads = subjectToRdfJsQuads(blankNodeIdOrPredicates, node, graphNode);
+                  quads.push(blankNodeObjectQuad);
+                  quads.push(...blankNodeSubjectQuads);
+              }
+          });
+      });
+      return quads;
+  }
+  /**
+   * A recursive function that finds all Blank Nodes in an array of Quads that create a cycle in the graph.
+   *
+   * This function will traverse the graph starting from `currentNode`, keeping
+   * track of all the Blank Nodes it encounters twice while doing so, and
+   * returning those.
+   */
+  function getCycleBlankNodes(currentNode, quads, traversedBlankNodes = []) {
+      // If we've encountered `currentNode` before, all the Blank Nodes we've
+      // encountered so far are part of a cycle. Return those.
+      if (traversedBlankNodes.find((traversedBlankNode) => traversedBlankNode.equals(currentNode)) !== undefined) {
+          return traversedBlankNodes;
+      }
+      // Find all Blank Nodes that are connected to `currentNode`:
+      const blankNodeObjects = quads
+          .filter((quad) => quad.subject.equals(currentNode) && isBlankNode$1(quad.object))
+          .map((quad) => quad.object);
+      // If no Blank Nodes are connected to `currentNode`, and `currentNode` is not
+      // part of a cycle, we're done; the currently traversed Nodes do not form a
+      // cycle:
+      if (blankNodeObjects.length === 0) {
+          return [];
+      }
+      // Store that we've traversed `currentNode`, then move on to all the Blank
+      // Nodes connected to it, which will then take up the role of `currentNode`:
+      const nextTraversedNodes = [...traversedBlankNodes, currentNode];
+      const cycleBlankNodeArrays = blankNodeObjects.map((nextNode) => getCycleBlankNodes(nextNode, quads, nextTraversedNodes));
+      // Collect all the cycle Blank Nodes found in those traverals,
+      // then return them:
+      const allCycleBlankNodes = [];
+      for (const cycleBlankNodes of cycleBlankNodeArrays) {
+          allCycleBlankNodes.push(...cycleBlankNodes);
+      }
+      return allCycleBlankNodes;
+  }
+  function isBlankNode$1(term) {
+      return term.termType === "BlankNode";
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+  const getTurtleParser = () => {
+      const onQuadCallbacks = [];
+      const onCompleteCallbacks = [];
+      const onErrorCallbacks = [];
+      return {
+          onQuad: (callback) => {
+              onQuadCallbacks.push(callback);
+          },
+          onError: (callback) => {
+              onErrorCallbacks.push(callback);
+          },
+          onComplete: (callback) => {
+              onCompleteCallbacks.push(callback);
+          },
+          parse: async (source, resourceInfo) => {
+              const parser = await getParser(getSourceUrl(resourceInfo));
+              parser.parse(source, (error, quad, _prefixes) => {
+                  if (error) {
+                      onErrorCallbacks.forEach((callback) => callback(error));
+                  }
+                  else if (quad) {
+                      onQuadCallbacks.every((callback) => callback(quad));
+                  }
+                  else {
+                      onCompleteCallbacks.every((callback) => callback());
+                  }
+              });
+          },
+      };
+  };
+  async function getParser(baseIri) {
+      const n3 = await loadN3();
+      return new n3.Parser({ format: "text/turtle", baseIRI: baseIri });
+  }
+  /**
+   * @param quads Triples that should be serialised to Turtle
+   * @internal Utility method for internal use; not part of the public API.
+   */
+  async function triplesToTurtle(quads) {
+      const n3 = await loadN3();
+      const format = "text/turtle";
+      const writer = new n3.Writer({ format: format });
+      // Remove any potentially lingering references to Named Graphs in Quads;
+      // they'll be determined by the URL the Turtle will be sent to:
+      const triples = quads.map((quad) => DataFactory$1.quad(quad.subject, quad.predicate, quad.object, undefined));
+      writer.addQuads(triples);
+      const writePromise = new Promise((resolve, reject) => {
+          writer.end((error, result) => {
+              /* istanbul ignore if [n3.js doesn't actually pass an error nor a result, apparently: https://github.com/rdfjs/N3.js/blob/62682e48c02d8965b4d728cb5f2cbec6b5d1b1b8/src/N3Writer.js#L290] */
+              if (error) {
+                  return reject(error);
+              }
+              resolve(result);
+          });
+      });
+      const rawTurtle = await writePromise;
+      return rawTurtle;
+  }
+  async function loadN3() {
+      // When loaded via Webpack or another bundler that looks at the `modules` field in package.json,
+      // N3 serves up ES modules with named exports.
+      // However, when it is loaded in Node, it serves up a CommonJS module, which, when imported from
+      // a Node ES module, is in the shape of a default export that is an object with all the named
+      // exports as its properties.
+      // This means that if we were to import the default module, our code would fail in Webpack,
+      // whereas if we imported the named exports, our code would fail in Node.
+      // As a workaround, we use a dynamic import. This way, we can use the same syntax in every
+      // environment, where the differences between the environments are in whether the returned object
+      // includes a `default` property that contains all exported functions, or whether those functions
+      // are available on the returned object directly. We can then respond to those different
+      // situations at runtime.
+      // Unfortunately, that does mean that tree shaking will not work until N3 also provides ES modules
+      // for Node, or adds a default export for Webpack. See
+      // https://github.com/rdfjs/N3.js/issues/196
+      const n3Module = await Promise.resolve().then(function () { return index; });
+      /* istanbul ignore if: the package provides named exports in the unit test environment */
+      if (typeof n3Module.default !== "undefined") {
+          return n3Module.default;
+      }
+      return n3Module;
+  }
+
+  /**
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -2934,6 +3421,7 @@ var SolidClient = (function (exports) {
           return `<${value.value}> (URL)`;
       }
       if (isLiteral$1(value)) {
+          /* istanbul ignore if: thingAsMarkdown always instantiates a NamedNode, so we can't hit this code path in tests. */
           if (!isNamedNode$1(value.datatype)) {
               return `[${value.value}] (RDF/JS Literal of unknown type)`;
           }
@@ -2963,64 +3451,21 @@ var SolidClient = (function (exports) {
                   return `[${value.value}] (RDF/JS Literal of type: \`${value.datatype.value}\`)`;
           }
       }
-      if (isLocalNode(value)) {
-          return `<#${value.internal_name}> (URL)`;
-      }
+      /* istanbul ignore else: thingAsMarkdown doesn't generate other Nodes, so we can't hit this path in tests. */
       if (value.termType === "BlankNode") {
           return `[${value.value}] (RDF/JS BlankNode)`;
       }
+      /* istanbul ignore next: thingAsMarkdown doesn't generate Quad Nodes, so we can't hit this path in tests. */
       if (value.termType === "Quad") {
           return `??? (nested RDF* Quad)`;
       }
       /* istanbul ignore else: The if statements are exhaustive; if not, TypeScript will complain. */
+      /* istanbul ignore next: thingAsMarkdown doesn't generate Variable Nodes, so we can't hit this path in tests. */
       if (value.termType === "Variable") {
           return `?${value.value} (RDF/JS Variable)`;
       }
       /* istanbul ignore next: The if statements are exhaustive; if not, TypeScript will complain. */
       return value;
-  }
-  /** @hidden */
-  function internal_toNode(thing) {
-      if (isNamedNode$1(thing) || isLocalNode(thing)) {
-          return thing;
-      }
-      if (typeof thing === "string") {
-          return asNamedNode(thing);
-      }
-      if (isThingLocal(thing)) {
-          return thing.internal_localSubject;
-      }
-      return asNamedNode(asUrl(thing));
-  }
-  /**
-   * @internal
-   * @param thing Thing to clone.
-   * @returns A new Thing with the same Quads as `input`.
-   */
-  function internal_cloneThing(thing) {
-      const cloned = clone(thing);
-      if (isThingLocal(thing)) {
-          cloned.internal_localSubject = thing.internal_localSubject;
-          return cloned;
-      }
-      cloned.internal_url = thing.internal_url;
-      return cloned;
-  }
-  /**
-   * @internal
-   * @param thing Thing to clone.
-   * @param callback Function that takes a Quad, and returns a boolean indicating whether that Quad should be included in the cloned Dataset.
-   * @returns A new Thing with the same Quads as `input`, excluding the ones for which `callback` returned `false`.
-   */
-  function internal_filterThing(thing, callback) {
-      const filtered = filter(thing, callback);
-      if (isThingLocal(thing)) {
-          filtered.internal_localSubject =
-              thing.internal_localSubject;
-          return filtered;
-      }
-      filtered.internal_url = thing.internal_url;
-      return filtered;
   }
   /**
    * @hidden
@@ -3031,6 +3476,57 @@ var SolidClient = (function (exports) {
       }
   }
   /**
+   * @hidden
+   * @param solidDataset
+   */
+  function internal_addAdditionsToChangeLog(solidDataset, additions) {
+      const changeLog = hasChangelog(solidDataset)
+          ? solidDataset.internal_changeLog
+          : /* istanbul ignore next: This function always gets called after addDeletionsToChangeLog, so the ChangeLog always already exists in tests: */
+              { additions: [], deletions: [] };
+      const [newAdditions, newDeletions] = additions
+          .filter((addition) => !containsBlankNode(addition))
+          .reduce(([additionsAcc, deletionsAcc], addition) => {
+          const existingDeletion = deletionsAcc.find((deletion) => deletion.equals(addition));
+          if (typeof existingDeletion !== "undefined") {
+              return [
+                  additionsAcc,
+                  deletionsAcc.filter((deletion) => !deletion.equals(addition)),
+              ];
+          }
+          return [additionsAcc.concat(addition), deletionsAcc];
+      }, [changeLog.additions, changeLog.deletions]);
+      return freeze(Object.assign(Object.assign({}, solidDataset), { internal_changeLog: {
+              additions: newAdditions,
+              deletions: newDeletions,
+          } }));
+  }
+  /**
+   * @hidden
+   * @param solidDataset
+   */
+  function internal_addDeletionsToChangeLog(solidDataset, deletions) {
+      const changeLog = hasChangelog(solidDataset)
+          ? solidDataset.internal_changeLog
+          : { additions: [], deletions: [] };
+      const [newAdditions, newDeletions] = deletions
+          .filter((deletion) => !containsBlankNode(deletion))
+          .reduce(([additionsAcc, deletionsAcc], deletion) => {
+          const existingAddition = additionsAcc.find((addition) => addition.equals(deletion));
+          if (typeof existingAddition !== "undefined") {
+              return [
+                  additionsAcc.filter((addition) => !addition.equals(deletion)),
+                  deletionsAcc,
+              ];
+          }
+          return [additionsAcc, deletionsAcc.concat(deletion)];
+      }, [changeLog.additions, changeLog.deletions]);
+      return freeze(Object.assign(Object.assign({}, solidDataset), { internal_changeLog: {
+              additions: newAdditions,
+              deletions: newDeletions,
+          } }));
+  }
+  /**
    * Enforces the presence of a Changelog for a given dataset. If a changelog is
    * already present, it is unchanged. Otherwise, an empty changelog is created.
    * @hidden
@@ -3039,14 +3535,24 @@ var SolidClient = (function (exports) {
   function internal_withChangeLog(solidDataset) {
       const newSolidDataset = hasChangelog(solidDataset)
           ? solidDataset
-          : Object.assign(internal_cloneResource(solidDataset), {
-              internal_changeLog: { additions: [], deletions: [] },
-          });
+          : freeze(Object.assign(Object.assign({}, solidDataset), { internal_changeLog: { additions: [], deletions: [] } }));
       return newSolidDataset;
+  }
+  /**
+   * We don't currently support reading and writing Blank Nodes, so this function can be used to skip those Quads.
+   *
+   * This is needed because we cannot reconcile Blank Nodes in additions and
+   * deletions. Down the road, we should do a diff before saving a SolidDataset
+   * against a saved copy of the originally-fetched one, based on our own data
+   * structures, which should make it easier to reconcile.
+   */
+  function containsBlankNode(quad) {
+      return (quad.subject.termType === "BlankNode" ||
+          quad.object.termType === "BlankNode");
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -3066,6 +3572,16 @@ var SolidClient = (function (exports) {
    * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    */
   /**
+   * Returns the URLs of all Properties that the given [[Thing ]]has values for.b
+   *
+   * @param thing The [[Thing]] of which to get that Property URLs that have a value.
+   * @returns The URLs of the Properties for which values are defined for the given Thing.
+   * @hidden This is an advanced API that should not be needed for most Solid use cases. If you do find yourself needing this, please file a feature request sharing your use case.
+   */
+  function getPropertyAll(thing) {
+      return Object.keys(thing.predicates).filter((predicate) => getTerm(thing, predicate) !== null);
+  }
+  /**
    * Returns the URL value of the specified Property from a [[Thing]].
    * If the Property is not present or its value is not of type URL, returns null.
    * If the Property has multiple URL values, returns one of its URL values.
@@ -3075,13 +3591,17 @@ var SolidClient = (function (exports) {
    * @returns A URL value for the given Property if present, or null if the Property is not present or the value is not of type URL.
    */
   function getUrl(thing, property) {
+      var _a, _b, _c;
       internal_throwIfNotThing(thing);
-      const namedNodeMatcher = getNamedNodeMatcher(property);
-      const matchingQuad = findOne(thing, namedNodeMatcher);
-      if (matchingQuad === null) {
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
+      }
+      const predicateUrl = internal_toIriString(property);
+      const firstUrl = (_c = (_b = (_a = thing.predicates[predicateUrl]) === null || _a === void 0 ? void 0 : _a.namedNodes) === null || _b === void 0 ? void 0 : _b[0]) !== null && _c !== void 0 ? _c : null;
+      if (firstUrl === null) {
           return null;
       }
-      return matchingQuad.object.value;
+      return isLocalNodeIri(firstUrl) ? `#${getLocalNodeName(firstUrl)}` : firstUrl;
   }
   /** @hidden Alias of [[getUrl]] for those who prefer IRI terminology. */
   const getIri = getUrl;
@@ -3095,10 +3615,13 @@ var SolidClient = (function (exports) {
    * @returns An array of URL values for the given Property.
    */
   function getUrlAll(thing, property) {
+      var _a, _b, _c;
       internal_throwIfNotThing(thing);
-      const iriMatcher = getNamedNodeMatcher(property);
-      const matchingQuads = findAll(thing, iriMatcher);
-      return matchingQuads.map((quad) => quad.object.value);
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
+      }
+      const predicateUrl = internal_toIriString(property);
+      return ((_c = (_b = (_a = thing.predicates[predicateUrl]) === null || _a === void 0 ? void 0 : _a.namedNodes) === null || _b === void 0 ? void 0 : _b.map((iri) => isLocalNodeIri(iri) ? `#${getLocalNodeName(iri)}` : iri)) !== null && _c !== void 0 ? _c : []);
   }
   /** @hidden Alias of [[getUrlAll]] for those who prefer IRI terminology. */
   const getIriAll = getUrlAll;
@@ -3167,6 +3690,76 @@ var SolidClient = (function (exports) {
       return literalStrings
           .map(deserializeDatetime)
           .filter((potentialDatetime) => potentialDatetime !== null);
+  }
+  /**
+   * Returns the date value of the specified Property from a [[Thing]].
+   * If the Property is not present or its value is not of type date, returns null.
+   * If the Property has multiple date values, returns one of its values.
+   *
+   * @param thing The [[Thing]] to read a date value from.
+   * @param property The Property whose date value to return.
+   * @returns A date value for the given Property if present, or null if the Property is not present or the value is not of type date.
+   * @since 1.10.0
+   */
+  function getDate(thing, property) {
+      internal_throwIfNotThing(thing);
+      const literalString = getLiteralOfType(thing, property, xmlSchemaTypes.date);
+      if (literalString === null) {
+          return null;
+      }
+      return deserializeDate(literalString);
+  }
+  /**
+   * Returns the date values of the specified Property from a [[Thing]].
+   * If the Property is not present, returns an empty array.
+   * If the Property's value is not of type date, omits that value in the array.
+   *
+   * @param thing The [[Thing]] to read the date values from.
+   * @param property The Property whose date values to return.
+   * @returns An array of date values for the given Property.
+   * @since 1.10.0
+   */
+  function getDateAll(thing, property) {
+      internal_throwIfNotThing(thing);
+      const literalStrings = getLiteralAllOfType(thing, property, xmlSchemaTypes.date);
+      return literalStrings
+          .map(deserializeDate)
+          .filter((potentialDate) => potentialDate !== null);
+  }
+  /**
+   * Returns the time value of the specified Property from a [[Thing]].
+   * If the Property is not present or its value is not of type time, returns null.
+   * If the Property has multiple time values, returns one of its values.
+   *
+   * @param thing The [[Thing]] to read a time value from.
+   * @param property The Property whose time value to return.
+   * @returns A time value for the given Property if present, or null if the Property is not present or the value is not of type time.
+   * @since 1.10.0
+   */
+  function getTime(thing, property) {
+      internal_throwIfNotThing(thing);
+      const literalString = getLiteralOfType(thing, property, xmlSchemaTypes.time);
+      if (literalString === null) {
+          return null;
+      }
+      return deserializeTime(literalString);
+  }
+  /**
+   * Returns the time values of the specified Property from a [[Thing]].
+   * If the Property is not present, returns an empty array.
+   * If the Property's value is not of type time, omits that value in the array.
+   *
+   * @param thing The [[Thing]] to read the time values from.
+   * @param property The Property whose time values to return.
+   * @returns An array of time values for the given Property.
+   * @since 1.10.0
+   */
+  function getTimeAll(thing, property) {
+      internal_throwIfNotThing(thing);
+      const literalStrings = getLiteralAllOfType(thing, property, xmlSchemaTypes.time);
+      return literalStrings
+          .map(deserializeTime)
+          .filter((potentialTime) => potentialTime !== null);
   }
   /**
    * Returns the decimal value of the specified Property from a [[Thing]].
@@ -3245,13 +3838,20 @@ var SolidClient = (function (exports) {
    * @returns A localised string value for the given Property if present in the specified `locale`, or null otherwise.
    */
   function getStringWithLocale(thing, property, locale) {
+      var _a, _b;
       internal_throwIfNotThing(thing);
-      const localeStringMatcher = getLocaleStringMatcher(property, locale);
-      const matchingQuad = findOne(thing, localeStringMatcher);
-      if (matchingQuad === null) {
-          return null;
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
       }
-      return matchingQuad.object.value;
+      const predicateIri = internal_toIriString(property);
+      const langStrings = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.langStrings) !== null && _b !== void 0 ? _b : {};
+      const existingLocales = Object.keys(langStrings);
+      const matchingLocale = existingLocales.find((existingLocale) => existingLocale.toLowerCase() === locale.toLowerCase() &&
+          Array.isArray(langStrings[existingLocale]) &&
+          langStrings[existingLocale].length > 0);
+      return typeof matchingLocale === "string"
+          ? langStrings[matchingLocale][0]
+          : null;
   }
   /**
    * Returns the localized string values of the specified Property from a [[Thing]].
@@ -3264,10 +3864,20 @@ var SolidClient = (function (exports) {
    * @returns An array of localised string values for the given Property.
    */
   function getStringWithLocaleAll(thing, property, locale) {
+      var _a, _b;
       internal_throwIfNotThing(thing);
-      const localeStringMatcher = getLocaleStringMatcher(property, locale);
-      const matchingQuads = findAll(thing, localeStringMatcher);
-      return matchingQuads.map((quad) => quad.object.value);
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
+      }
+      const predicateIri = internal_toIriString(property);
+      const langStrings = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.langStrings) !== null && _b !== void 0 ? _b : {};
+      const existingLocales = Object.keys(langStrings);
+      const matchingLocale = existingLocales.find((existingLocale) => existingLocale.toLowerCase() === locale.toLowerCase() &&
+          Array.isArray(langStrings[existingLocale]) &&
+          langStrings[existingLocale].length > 0);
+      return typeof matchingLocale === "string"
+          ? [...langStrings[matchingLocale]]
+          : [];
   }
   /**
    * Returns all localized string values mapped by the locales for the specified property from the
@@ -3278,20 +3888,17 @@ var SolidClient = (function (exports) {
    * @returns A Map of objects, keyed on locale with the value an array of string values (for that locale).
    */
   function getStringByLocaleAll(thing, property) {
+      var _a, _b;
       internal_throwIfNotThing(thing);
-      const literalMatcher = getLiteralMatcher(property);
-      const matchingQuads = findAll(thing, literalMatcher);
-      const result = new Map();
-      matchingQuads.map((quad) => {
-          if (quad.object.datatype.value === xmlSchemaTypes.langString) {
-              const languageTag = quad.object.language;
-              const current = result.get(languageTag);
-              current
-                  ? result.set(languageTag, [...current, quad.object.value])
-                  : result.set(languageTag, [quad.object.value]);
-          }
-      });
-      return result;
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
+      }
+      const predicateIri = internal_toIriString(property);
+      const stringsByLocale = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.langStrings) !== null && _b !== void 0 ? _b : {};
+      return new Map(Object.entries(stringsByLocale).map(([locale, values]) => [
+          locale,
+          [...values],
+      ]));
   }
   /**
    * Returns the string value of the specified Property from a [[Thing]].
@@ -3329,13 +3936,11 @@ var SolidClient = (function (exports) {
    * @see https://rdf.js.org/data-model-spec/#namednode-interface
    */
   function getNamedNode(thing, property) {
-      internal_throwIfNotThing(thing);
-      const namedNodeMatcher = getNamedNodeMatcher(property);
-      const matchingQuad = findOne(thing, namedNodeMatcher);
-      if (matchingQuad === null) {
+      const iriString = getIri(thing, property);
+      if (iriString === null) {
           return null;
       }
-      return matchingQuad.object;
+      return DataFactory$1.namedNode(iriString);
   }
   /**
    * @param thing The [[Thing]] to read the NamedNode values from.
@@ -3345,10 +3950,8 @@ var SolidClient = (function (exports) {
    * @see https://rdf.js.org/data-model-spec/#namednode-interface
    */
   function getNamedNodeAll(thing, property) {
-      internal_throwIfNotThing(thing);
-      const namedNodeMatcher = getNamedNodeMatcher(property);
-      const matchingQuads = findAll(thing, namedNodeMatcher);
-      return matchingQuads.map((quad) => quad.object);
+      const iriStrings = getIriAll(thing, property);
+      return iriStrings.map((iriString) => DataFactory$1.namedNode(iriString));
   }
   /**
    * @param thing The [[Thing]] to read a Literal value from.
@@ -3358,13 +3961,30 @@ var SolidClient = (function (exports) {
    * @see https://rdf.js.org/data-model-spec/#literal-interface
    */
   function getLiteral(thing, property) {
+      var _a, _b, _c, _d;
       internal_throwIfNotThing(thing);
-      const literalMatcher = getLiteralMatcher(property);
-      const matchingQuad = findOne(thing, literalMatcher);
-      if (matchingQuad === null) {
-          return null;
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
       }
-      return matchingQuad.object;
+      const predicateIri = internal_toIriString(property);
+      const langStrings = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.langStrings) !== null && _b !== void 0 ? _b : {};
+      const locales = Object.keys(langStrings);
+      if (locales.length > 0) {
+          const nonEmptyLocale = locales.find((locale) => Array.isArray(langStrings[locale]) && langStrings[locale].length > 0);
+          if (typeof nonEmptyLocale === "string") {
+              return DataFactory$1.literal(langStrings[nonEmptyLocale][0], nonEmptyLocale);
+          }
+      }
+      const otherLiterals = (_d = (_c = thing.predicates[predicateIri]) === null || _c === void 0 ? void 0 : _c.literals) !== null && _d !== void 0 ? _d : {};
+      const dataTypes = Object.keys(otherLiterals);
+      if (dataTypes.length > 0) {
+          const nonEmptyDataType = dataTypes.find((dataType) => Array.isArray(otherLiterals[dataType]) &&
+              otherLiterals[dataType].length > 0);
+          if (typeof nonEmptyDataType === "string") {
+              return DataFactory$1.literal(otherLiterals[nonEmptyDataType][0], DataFactory$1.namedNode(nonEmptyDataType));
+          }
+      }
+      return null;
   }
   /**
    * @param thing The [[Thing]] to read the Literal values from.
@@ -3374,10 +3994,29 @@ var SolidClient = (function (exports) {
    * @see https://rdf.js.org/data-model-spec/#literal-interface
    */
   function getLiteralAll(thing, property) {
+      var _a, _b, _c, _d;
       internal_throwIfNotThing(thing);
-      const literalMatcher = getLiteralMatcher(property);
-      const matchingQuads = findAll(thing, literalMatcher);
-      return matchingQuads.map((quad) => quad.object);
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
+      }
+      const predicateIri = internal_toIriString(property);
+      let literals = [];
+      const langStrings = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.langStrings) !== null && _b !== void 0 ? _b : {};
+      const locales = Object.keys(langStrings);
+      for (const locale of locales) {
+          const stringsInLocale = langStrings[locale];
+          const localeLiterals = stringsInLocale.map((langString) => DataFactory$1.literal(langString, locale));
+          literals = literals.concat(localeLiterals);
+      }
+      const otherLiterals = (_d = (_c = thing.predicates[predicateIri]) === null || _c === void 0 ? void 0 : _c.literals) !== null && _d !== void 0 ? _d : {};
+      const dataTypes = Object.keys(otherLiterals);
+      for (const dataType of dataTypes) {
+          const values = otherLiterals[dataType];
+          const typeNode = DataFactory$1.namedNode(dataType);
+          const dataTypeLiterals = values.map((value) => DataFactory$1.literal(value, typeNode));
+          literals = literals.concat(dataTypeLiterals);
+      }
+      return literals;
   }
   /**
    * @param thing The [[Thing]] to read a raw RDF/JS value from.
@@ -3388,13 +4027,25 @@ var SolidClient = (function (exports) {
    * @since 0.3.0
    */
   function getTerm(thing, property) {
+      var _a, _b;
       internal_throwIfNotThing(thing);
-      const termMatcher = getTermMatcher(property);
-      const matchingQuad = findOne(thing, termMatcher);
-      if (matchingQuad === null) {
-          return null;
+      const namedNode = getNamedNode(thing, property);
+      if (namedNode !== null) {
+          return namedNode;
       }
-      return matchingQuad.object;
+      const literal = getLiteral(thing, property);
+      if (literal !== null) {
+          return literal;
+      }
+      const predicateIri = internal_toIriString(property);
+      const blankNodes = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.blankNodes) !== null && _b !== void 0 ? _b : [];
+      if (blankNodes.length > 0) {
+          const blankNodeValue = isBlankNodeId(blankNodes[0])
+              ? getBlankNodeValue(blankNodes[0])
+              : undefined;
+          return DataFactory$1.blankNode(blankNodeValue);
+      }
+      return null;
   }
   /**
    * @param thing The [[Thing]] to read the raw RDF/JS values from.
@@ -3405,92 +4056,22 @@ var SolidClient = (function (exports) {
    * @since 0.3.0
    */
   function getTermAll(thing, property) {
+      var _a, _b;
       internal_throwIfNotThing(thing);
-      const namedNodeMatcher = getTermMatcher(property);
-      const matchingQuads = findAll(thing, namedNodeMatcher);
-      return matchingQuads.map((quad) => quad.object);
-  }
-  /**
-   * @param thing The [[Thing]] to extract a Quad from.
-   * @param matcher Callback function that returns a boolean indicating whether a given Quad should be included.
-   * @returns First Quad in `thing` for which `matcher` returned true.
-   */
-  function findOne(thing, matcher) {
-      for (const quad of thing) {
-          if (matcher(quad)) {
-              return quad;
-          }
-      }
-      return null;
-  }
-  /**
-   * @param thing The [[Thing]] to extract Quads from.
-   * @param matcher Callback function that returns a boolean indicating whether a given Quad should be included.
-   * @returns All Quads in `thing` for which `matcher` returned true.
-   */
-  function findAll(thing, matcher) {
-      const matched = [];
-      for (const quad of thing) {
-          if (matcher(quad)) {
-              matched.push(quad);
-          }
-      }
-      return matched;
-  }
-  function getNamedNodeMatcher(property) {
-      if (!internal_isValidUrl(property)) {
-          throw new ValidPropertyUrlExpectedError(property);
-      }
-      const predicateNode = asNamedNode(property);
-      const matcher = function matcher(quad) {
-          return predicateNode.equals(quad.predicate) && isNamedNode$1(quad.object);
-      };
-      return matcher;
-  }
-  function getLiteralMatcher(property) {
-      if (!internal_isValidUrl(property)) {
-          throw new ValidPropertyUrlExpectedError(property);
-      }
-      const predicateNode = asNamedNode(property);
-      const matcher = function matcher(quad) {
-          return predicateNode.equals(quad.predicate) && isLiteral$1(quad.object);
-      };
-      return matcher;
-  }
-  function getTermMatcher(property) {
-      if (!internal_isValidUrl(property)) {
-          throw new ValidPropertyUrlExpectedError(property);
-      }
-      const predicateNode = asNamedNode(property);
-      const matcher = function matcher(quad) {
-          return predicateNode.equals(quad.predicate) && isTerm(quad.object);
-      };
-      return matcher;
-  }
-  function getLiteralOfTypeMatcher(property, datatype) {
-      if (!internal_isValidUrl(property)) {
-          throw new ValidPropertyUrlExpectedError(property);
-      }
-      const predicateNode = asNamedNode(property);
-      const matcher = function matcher(quad) {
-          return (predicateNode.equals(quad.predicate) &&
-              isLiteral$1(quad.object) &&
-              quad.object.datatype.value === datatype);
-      };
-      return matcher;
-  }
-  function getLocaleStringMatcher(property, locale) {
-      if (!internal_isValidUrl(property)) {
-          throw new ValidPropertyUrlExpectedError(property);
-      }
-      const predicateNode = asNamedNode(property);
-      const matcher = function matcher(quad) {
-          return (predicateNode.equals(quad.predicate) &&
-              isLiteral$1(quad.object) &&
-              quad.object.datatype.value === xmlSchemaTypes.langString &&
-              quad.object.language.toLowerCase() === locale.toLowerCase());
-      };
-      return matcher;
+      const namedNodes = getNamedNodeAll(thing, property);
+      const literals = getLiteralAll(thing, property);
+      const predicateIri = internal_toIriString(property);
+      const blankNodeValues = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.blankNodes) !== null && _b !== void 0 ? _b : [];
+      const blankNodes = blankNodeValues.map((rawBlankNode) => {
+          const blankNodeName = isBlankNodeId(rawBlankNode)
+              ? getBlankNodeValue(rawBlankNode)
+              : undefined;
+          return DataFactory$1.blankNode(blankNodeName);
+      });
+      const terms = namedNodes
+          .concat(literals)
+          .concat(blankNodes);
+      return terms;
   }
   /**
    * @param thing The [Thing]] to read a Literal of the given type from.
@@ -3499,12 +4080,12 @@ var SolidClient = (function (exports) {
    * @returns The stringified value for the given Property and type, if present, or null otherwise.
    */
   function getLiteralOfType(thing, property, literalType) {
-      const literalOfTypeMatcher = getLiteralOfTypeMatcher(property, literalType);
-      const matchingQuad = findOne(thing, literalOfTypeMatcher);
-      if (matchingQuad === null) {
-          return null;
+      var _a, _b, _c, _d;
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
       }
-      return matchingQuad.object.value;
+      const predicateIri = internal_toIriString(property);
+      return (_d = (_c = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.literals) === null || _b === void 0 ? void 0 : _b[literalType]) === null || _c === void 0 ? void 0 : _c[0]) !== null && _d !== void 0 ? _d : null;
   }
   /**
    * @param thing The [Thing]] to read the Literals of the given type from.
@@ -3513,13 +4094,17 @@ var SolidClient = (function (exports) {
    * @returns The stringified values for the given Property and type.
    */
   function getLiteralAllOfType(thing, property, literalType) {
-      const literalOfTypeMatcher = getLiteralOfTypeMatcher(property, literalType);
-      const matchingQuads = findAll(thing, literalOfTypeMatcher);
-      return matchingQuads.map((quad) => quad.object.value);
+      var _a, _b, _c;
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
+      }
+      const predicateIri = internal_toIriString(property);
+      const literalsOfType = (_c = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.literals) === null || _b === void 0 ? void 0 : _b[literalType]) !== null && _c !== void 0 ? _c : [];
+      return [...literalsOfType];
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -3546,29 +4131,23 @@ var SolidClient = (function (exports) {
    * @param options Not yet implemented.
    */
   function getThing(solidDataset, thingUrl, options = {}) {
-      if (!isLocalNode(thingUrl) && !internal_isValidUrl(thingUrl)) {
+      var _a;
+      if (!internal_isValidUrl(thingUrl)) {
           throw new ValidThingUrlExpectedError(thingUrl);
       }
-      const subject = isLocalNode(thingUrl) ? thingUrl : asNamedNode(thingUrl);
-      const scope = options.scope
-          ? asNamedNode(options.scope)
-          : null;
-      const thingDataset = solidDataset.match(subject, null, null, scope);
-      if (thingDataset.size === 0) {
+      const graph = typeof options.scope !== "undefined"
+          ? internal_toIriString(options.scope)
+          : "default";
+      const thingsByIri = (_a = solidDataset.graphs[graph]) !== null && _a !== void 0 ? _a : {};
+      const thingIri = internal_toIriString(thingUrl);
+      const resolvedThingIri = isLocalNodeIri(thingIri) && hasServerResourceInfo(solidDataset)
+          ? resolveLocalIri(getLocalNodeName(thingIri), getSourceUrl(solidDataset))
+          : thingIri;
+      const thing = thingsByIri[resolvedThingIri];
+      if (typeof thing === "undefined") {
           return null;
       }
-      if (isLocalNode(subject)) {
-          const thing = Object.assign(thingDataset, {
-              internal_localSubject: subject,
-          });
-          return thing;
-      }
-      else {
-          const thing = Object.assign(thingDataset, {
-              internal_url: subject.value,
-          });
-          return thing;
-      }
+      return thing;
   }
   /**
    * Get all [[Thing]]s about which a [[SolidDataset]] contains Quads.
@@ -3577,27 +4156,12 @@ var SolidClient = (function (exports) {
    * @param options Not yet implemented.
    */
   function getThingAll(solidDataset, options = {}) {
-      const subjectNodes = new Array();
-      for (const quad of solidDataset) {
-          // Because NamedNode objects with the same IRI are actually different
-          // object instances, we have to manually check whether `subjectNodes` does
-          // not yet include `quadSubject` before adding it.
-          const quadSubject = quad.subject;
-          if (isNamedNode$1(quadSubject) &&
-              !subjectNodes.some((subjectNode) => isEqual(subjectNode, quadSubject))) {
-              subjectNodes.push(quadSubject);
-          }
-          if (isLocalNode(quadSubject) &&
-              !subjectNodes.some((subjectNode) => isEqual(subjectNode, quadSubject))) {
-              subjectNodes.push(quadSubject);
-          }
-      }
-      const things = subjectNodes.map((subjectNode) => getThing(solidDataset, subjectNode, options)
-      // We can make the type assertion here because `getThing` only returns `null` if no data with
-      // the given subject node can be found, and in this case the subject node was extracted from
-      // existing data (i.e. that can be found by definition):
-      );
-      return things;
+      var _a;
+      const graph = typeof options.scope !== "undefined"
+          ? internal_toIriString(options.scope)
+          : "default";
+      const thingsByIri = (_a = solidDataset.graphs[graph]) !== null && _a !== void 0 ? _a : {};
+      return Object.values(thingsByIri).filter((thing) => !isBlankNodeId(thing.url));
   }
   /**
    * Insert a [[Thing]] into a [[SolidDataset]], replacing previous instances of that Thing.
@@ -3607,50 +4171,20 @@ var SolidClient = (function (exports) {
    * @returns A new SolidDataset equal to the given SolidDataset, but with the given Thing.
    */
   function setThing(solidDataset, thing) {
-      const newDataset = removeThing(solidDataset, thing);
-      newDataset.internal_changeLog = {
-          additions: [...newDataset.internal_changeLog.additions],
-          deletions: [...newDataset.internal_changeLog.deletions],
-      };
-      for (const quad of thing) {
-          newDataset.add(quad);
-          const alreadyDeletedQuad = newDataset.internal_changeLog.deletions.find((deletedQuad) => equalsExcludingBlankNodes(quad, deletedQuad));
-          if (typeof alreadyDeletedQuad !== "undefined") {
-              newDataset.internal_changeLog.deletions = newDataset.internal_changeLog.deletions.filter((deletion) => deletion !== alreadyDeletedQuad);
-          }
-          else {
-              newDataset.internal_changeLog.additions.push(quad);
-          }
-      }
-      return newDataset;
-  }
-  /**
-   * Compare two Quads but, if both Quads have objects that are Blank Nodes and are otherwise equal, treat them as equal.
-   *
-   * The reason we do this is because you cannot write Blank Nodes as Quad
-   * Subjects using solid-client, so they wouldn't be used in an Object position
-   * either. Thus, if a SolidDataset has a ChangeLog in which a given Quad with a
-   * Blank node as object is listed as deleted, and then an otherwise equivalent
-   * Quad but with a different instance of a Blank Node is added, we can assume
-   * that they are the same, and that rather than adding the new Quad, we can just
-   * prevent the old Quad from being removed.
-   * This occurs in situations in which, for example, you extract a Thing from a
-   * SolidDataset, change that Thing, then re-fetch that same SolidDataset (to
-   * make sure you are working with up-to-date data) and add the Thing to _that_.
-   * When the server returns the data in a serialisation that does not assign a
-   * consistent value to Blank Nodes (e.g. Turtle), our client-side parser will
-   * have to instantiate unique instances on every parse. Therefore, the Blank
-   * Nodes in the refetched SolidDataset will now be different instances from the
-   * ones in the original SolidDataset, even though they're equivalent.
-   */
-  function equalsExcludingBlankNodes(a, b) {
-      // Potential future improvement: compare the actual values of the nodes.
-      // For example, currently a decimal serialised as "1.0" is considered different from a decimal
-      // serialised as "1.00".
-      return (a.subject.equals(b.subject) &&
-          b.predicate.equals(b.predicate) &&
-          (a.object.equals(b.object) ||
-              (a.object.termType === "BlankNode" && b.object.termType === "BlankNode")));
+      var _a;
+      const thingIri = isThingLocal(thing) && hasServerResourceInfo(solidDataset)
+          ? resolveLocalIri(getLocalNodeName(thing.url), getSourceUrl(solidDataset))
+          : thing.url;
+      const defaultGraph = solidDataset.graphs.default;
+      const updatedDefaultGraph = freeze(Object.assign(Object.assign({}, defaultGraph), { [thingIri]: freeze(Object.assign(Object.assign({}, thing), { url: thingIri })) }));
+      const updatedGraphs = freeze(Object.assign(Object.assign({}, solidDataset.graphs), { default: updatedDefaultGraph }));
+      const subjectNode = DataFactory$1.namedNode(thingIri);
+      const deletedThingPredicates = (_a = solidDataset.graphs.default[thingIri]) === null || _a === void 0 ? void 0 : _a.predicates;
+      const deletions = typeof deletedThingPredicates !== "undefined"
+          ? subjectToRdfJsQuads(deletedThingPredicates, subjectNode, DataFactory$1.defaultGraph())
+          : [];
+      const additions = subjectToRdfJsQuads(thing.predicates, subjectNode, DataFactory$1.defaultGraph());
+      return internal_addAdditionsToChangeLog(internal_addDeletionsToChangeLog(freeze(Object.assign(Object.assign({}, solidDataset), { graphs: updatedGraphs })), deletions), additions);
   }
   /**
    * Remove a Thing from a SolidDataset.
@@ -3660,32 +4194,33 @@ var SolidClient = (function (exports) {
    * @returns A new [[SolidDataset]] equal to the input SolidDataset, excluding the given Thing.
    */
   function removeThing(solidDataset, thing) {
-      const newSolidDataset = internal_withChangeLog(internal_cloneResource(solidDataset));
-      newSolidDataset.internal_changeLog = {
-          additions: [...newSolidDataset.internal_changeLog.additions],
-          deletions: [...newSolidDataset.internal_changeLog.deletions],
-      };
-      const resourceIri = hasResourceInfo(newSolidDataset)
-          ? getSourceUrl(newSolidDataset)
-          : undefined;
-      const thingSubject = internal_toNode(thing);
-      const existingQuads = Array.from(newSolidDataset);
-      existingQuads.forEach((quad) => {
-          if (!isNamedNode$1(quad.subject) && !isLocalNode(quad.subject)) {
-              // This data is unexpected, and hence unlikely to be added by us. Thus, leave it intact:
-              return;
-          }
-          if (isEqual(thingSubject, quad.subject, { resourceIri: resourceIri })) {
-              newSolidDataset.delete(quad);
-              if (newSolidDataset.internal_changeLog.additions.includes(quad)) {
-                  newSolidDataset.internal_changeLog.additions = newSolidDataset.internal_changeLog.additions.filter((addition) => addition !== quad);
-              }
-              else {
-                  newSolidDataset.internal_changeLog.deletions.push(quad);
-              }
-          }
-      });
-      return newSolidDataset;
+      var _a;
+      let thingIri;
+      if (isNamedNode$1(thing)) {
+          thingIri = thing.value;
+      }
+      else if (typeof thing === "string") {
+          thingIri =
+              isLocalNodeIri(thing) && hasServerResourceInfo(solidDataset)
+                  ? resolveLocalIri(getLocalNodeName(thing), getSourceUrl(solidDataset))
+                  : thing;
+      }
+      else if (isThingLocal(thing)) {
+          thingIri = thing.url;
+      }
+      else {
+          thingIri = asIri(thing);
+      }
+      const defaultGraph = solidDataset.graphs.default;
+      const updatedDefaultGraph = Object.assign({}, defaultGraph);
+      delete updatedDefaultGraph[thingIri];
+      const updatedGraphs = freeze(Object.assign(Object.assign({}, solidDataset.graphs), { default: freeze(updatedDefaultGraph) }));
+      const subjectNode = DataFactory$1.namedNode(thingIri);
+      const deletedThingPredicates = (_a = solidDataset.graphs.default[thingIri]) === null || _a === void 0 ? void 0 : _a.predicates;
+      const deletions = typeof deletedThingPredicates !== "undefined"
+          ? subjectToRdfJsQuads(deletedThingPredicates, subjectNode, DataFactory$1.defaultGraph())
+          : [];
+      return internal_addDeletionsToChangeLog(freeze(Object.assign(Object.assign({}, solidDataset), { graphs: updatedGraphs })), deletions);
   }
   function createThing(options = {}) {
       var _a;
@@ -3694,15 +4229,19 @@ var SolidClient = (function (exports) {
           if (!internal_isValidUrl(url)) {
               throw new ValidThingUrlExpectedError(url);
           }
-          const thing = Object.assign(dataset(), {
-              internal_url: url,
+          const thing = freeze({
+              type: "Subject",
+              predicates: freeze({}),
+              url: url,
           });
           return thing;
       }
       const name = (_a = options.name) !== null && _a !== void 0 ? _a : generateName();
-      const localSubject = getLocalNode(name);
-      const thing = Object.assign(dataset(), {
-          internal_localSubject: localSubject,
+      const localNodeIri = getLocalNodeIri(name);
+      const thing = freeze({
+          type: "Subject",
+          predicates: freeze({}),
+          url: localNodeIri,
       });
       return thing;
   }
@@ -3712,18 +4251,19 @@ var SolidClient = (function (exports) {
    * @since 0.2.0
    */
   function isThing(input) {
-      return (internal_isDatasetCore(input) &&
-          (isThingLocal(input) ||
-              typeof input.internal_url === "string"));
+      return (typeof input === "object" &&
+          input !== null &&
+          typeof input.type === "string" &&
+          input.type === "Subject");
   }
   function asUrl(thing, baseUrl) {
       if (isThingLocal(thing)) {
           if (typeof baseUrl === "undefined") {
               throw new Error("The URL of a Thing that has not been persisted cannot be determined without a base URL.");
           }
-          return resolveLocalIri(thing.internal_localSubject.internal_name, baseUrl);
+          return resolveLocalIri(getLocalNodeName(thing.url), baseUrl);
       }
-      return thing.internal_url;
+      return thing.url;
   }
   /** @hidden Alias of [[asUrl]] for those who prefer IRI terminology. */
   const asIri = asUrl;
@@ -3739,18 +4279,17 @@ var SolidClient = (function (exports) {
   function thingAsMarkdown(thing) {
       let thingAsMarkdown = "";
       if (isThingLocal(thing)) {
-          thingAsMarkdown += `## Thing (no URL yet — identifier: \`#${thing.internal_localSubject.internal_name}\`)\n`;
+          thingAsMarkdown += `## Thing (no URL yet — identifier: \`#${getLocalNodeName(thing.url)}\`)\n`;
       }
       else {
-          thingAsMarkdown += `## Thing: ${thing.internal_url}\n`;
+          thingAsMarkdown += `## Thing: ${thing.url}\n`;
       }
-      const quads = Array.from(thing);
-      if (quads.length === 0) {
+      const predicateIris = Object.keys(thing.predicates);
+      if (predicateIris.length === 0) {
           thingAsMarkdown += "\n<empty>\n";
       }
       else {
-          const predicates = new Set(quads.map((quad) => quad.predicate.value));
-          for (const predicate of predicates) {
+          for (const predicate of predicateIris) {
               thingAsMarkdown += `\nProperty: ${predicate}\n`;
               const values = getTermAll(thing, predicate);
               values.forEach((value) => {
@@ -3762,12 +4301,11 @@ var SolidClient = (function (exports) {
   }
   /**
    * @param thing The [[Thing]] of which a URL might or might not be known.
-   * @return Whether `thing` has no known URL yet.
+   * @return `true` if `thing` has no known URL yet.
+   * @since 1.7.0
    */
   function isThingLocal(thing) {
-      var _a;
-      return (typeof ((_a = thing.internal_localSubject) === null || _a === void 0 ? void 0 : _a.internal_name) ===
-          "string" && typeof thing.internal_url === "undefined");
+      return isLocalNodeIri(thing.url);
   }
   /**
    * This error is thrown when a function expected to receive a [[Thing]] but received something else.
@@ -3834,7 +4372,7 @@ var SolidClient = (function (exports) {
   };
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -3865,7 +4403,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -3890,7 +4428,80 @@ var SolidClient = (function (exports) {
    * @returns An empty [[SolidDataset]].
    */
   function createSolidDataset() {
-      return dataset();
+      return freeze({
+          type: "Dataset",
+          graphs: {
+              default: {},
+          },
+      });
+  }
+  /**
+   * @hidden This interface is not exposed yet until we've tried it out in practice.
+   */
+  async function responseToSolidDataset(response, parseOptions = {}) {
+      if (internal_isUnsuccessfulResponse(response)) {
+          throw new FetchError(`Fetching the SolidDataset at [${response.url}] failed: [${response.status}] [${response.statusText}].`, response);
+      }
+      const resourceInfo = responseToResourceInfo(response);
+      const parsers = Object.assign({ "text/turtle": getTurtleParser() }, parseOptions.parsers);
+      const contentType = getContentType$1(resourceInfo);
+      if (contentType === null) {
+          throw new Error(`Could not determine the content type of the Resource at [${getSourceUrl(resourceInfo)}].`);
+      }
+      const mimeType = contentType.split(";")[0];
+      const parser = parsers[mimeType];
+      if (typeof parser === "undefined") {
+          throw new Error(`The Resource at [${getSourceUrl(resourceInfo)}] has a MIME type of [${mimeType}], but the only parsers available are for the following MIME types: [${Object.keys(parsers).join(", ")}].`);
+      }
+      const data = await response.text();
+      const parsingPromise = new Promise((resolve, reject) => {
+          let solidDataset = freeze({
+              graphs: freeze({ default: freeze({}) }),
+              type: "Dataset",
+          });
+          // While Quads without Blank Nodes can be added to the SolidDataset as we
+          // encounter them, to parse Quads with Blank Nodes, we'll have to wait until
+          // we've seen all the Quads, so that we can reconcile equal Blank Nodes.
+          const quadsWithBlankNodes = [];
+          const allQuads = [];
+          parser.onError((error) => {
+              reject(new Error(`Encountered an error parsing the Resource at [${getSourceUrl(resourceInfo)}] with content type [${contentType}]: ${error}`));
+          });
+          parser.onQuad((quad) => {
+              allQuads.push(quad);
+              if (quad.subject.termType === "BlankNode" ||
+                  quad.object.termType === "BlankNode") {
+                  // Quads with Blank Nodes will be parsed when all Quads are known,
+                  // so that equal Blank Nodes can be reconciled:
+                  quadsWithBlankNodes.push(quad);
+              }
+              else {
+                  solidDataset = addRdfJsQuadToDataset(solidDataset, quad);
+              }
+          });
+          parser.onComplete(async () => {
+              // If a Resource contains more than this number of Blank Nodes,
+              // we consider the detection of chains (O(n^2), I think) to be too
+              // expensive, and just incorporate them as regular Blank Nodes with
+              // non-deterministic, ad-hoc identifiers into the SolidDataset:
+              const maxBlankNodesToDetectChainsFor = 20;
+              // Some Blank Nodes only serve to use a set of Quads as the Object for a
+              // single Subject. Those Quads will be added to the SolidDataset when
+              // their Subject's Blank Node is encountered in the Object position.
+              const chainBlankNodes = quadsWithBlankNodes.length <= maxBlankNodesToDetectChainsFor
+                  ? getChainBlankNodes(quadsWithBlankNodes)
+                  : [];
+              const quadsWithoutChainBlankNodeSubjects = quadsWithBlankNodes.filter((quad) => chainBlankNodes.every((chainBlankNode) => !chainBlankNode.equals(quad.subject)));
+              solidDataset = quadsWithoutChainBlankNodeSubjects.reduce((datasetAcc, quad) => addRdfJsQuadToDataset(datasetAcc, quad, {
+                  otherQuads: allQuads,
+                  chainBlankNodes: chainBlankNodes,
+              }), solidDataset);
+              const solidDatasetWithResourceInfo = freeze(Object.assign(Object.assign({}, solidDataset), resourceInfo));
+              resolve(solidDatasetWithResourceInfo);
+          });
+          parser.parse(data, resourceInfo);
+      });
+      return await parsingPromise;
   }
   /**
    * Fetch a SolidDataset from the given URL. Currently requires the SolidDataset to be available as [Turtle](https://www.w3.org/TR/turtle/).
@@ -3900,25 +4511,23 @@ var SolidClient = (function (exports) {
    * @returns Promise resolving to a [[SolidDataset]] containing the data at the given Resource, or rejecting if fetching it failed.
    */
   async function getSolidDataset(url, options = internal_defaultFetchOptions) {
+      var _a;
       url = internal_toIriString(url);
       const config = Object.assign(Object.assign({}, internal_defaultFetchOptions), options);
+      const parserContentTypes = Object.keys((_a = options.parsers) !== null && _a !== void 0 ? _a : {});
+      const acceptedContentTypes = parserContentTypes.length > 0
+          ? parserContentTypes.join(", ")
+          : "text/turtle";
       const response = await config.fetch(url, {
           headers: {
-              Accept: "text/turtle",
+              Accept: acceptedContentTypes,
           },
       });
       if (internal_isUnsuccessfulResponse(response)) {
           throw new FetchError(`Fetching the Resource at [${url}] failed: [${response.status}] [${response.statusText}].`, response);
       }
-      const data = await response.text();
-      const triples = await turtleToTriples(data, url);
-      const resource = dataset();
-      triples.forEach((triple) => resource.add(triple));
-      const resourceInfo = internal_parseResourceInfo(response);
-      const resourceWithResourceInfo = Object.assign(resource, {
-          internal_resourceInfo: resourceInfo,
-      });
-      return resourceWithResourceInfo;
+      const solidDataset = await responseToSolidDataset(response, options);
+      return solidDataset;
   }
   /**
    * Create a SPARQL UPDATE Patch request from a [[SolidDataset]] with a changelog.
@@ -3950,7 +4559,7 @@ var SolidClient = (function (exports) {
   async function prepareSolidDatasetCreation(solidDataset) {
       return {
           method: "PUT",
-          body: await triplesToTurtle(Array.from(solidDataset).map(getNamedNodesForLocalNodes)),
+          body: await triplesToTurtle(toRdfJsQuads(solidDataset).map(getNamedNodesForLocalNodes)),
           headers: {
               "Content-Type": "text/turtle",
               "If-None-Match": "*",
@@ -3999,15 +4608,14 @@ var SolidClient = (function (exports) {
               diagnostics, response);
       }
       const resourceInfo = Object.assign(Object.assign({}, internal_parseResourceInfo(response)), { isRawData: false });
-      const storedDataset = Object.assign(internal_cloneResource(datasetWithChangelog), {
-          internal_changeLog: { additions: [], deletions: [] },
-          internal_resourceInfo: resourceInfo,
-      });
+      const storedDataset = freeze(Object.assign(Object.assign({}, solidDataset), { internal_changeLog: { additions: [], deletions: [] }, internal_resourceInfo: resourceInfo }));
       const storedDatasetWithResolvedIris = resolveLocalIrisInSolidDataset(storedDataset);
       return storedDatasetWithResolvedIris;
   }
   /**
    * Deletes the SolidDataset at a given URL.
+   *
+   * If operating on a container, the container must be empty otherwise a 409 CONFLICT will be raised.
    *
    * @param file The (URL of the) SolidDataset to delete
    * @since 0.6.0
@@ -4061,10 +4669,7 @@ var SolidClient = (function (exports) {
           throw new FetchError(`Creating the empty Container at [${url}] failed: [${response.status}] [${response.statusText}].`, response);
       }
       const resourceInfo = internal_parseResourceInfo(response);
-      const containerDataset = Object.assign(dataset(), {
-          internal_changeLog: { additions: [], deletions: [] },
-          internal_resourceInfo: resourceInfo,
-      });
+      const containerDataset = freeze(Object.assign(Object.assign({}, createSolidDataset()), { internal_changeLog: { additions: [], deletions: [] }, internal_resourceInfo: resourceInfo }));
       return containerDataset;
   }
   /**
@@ -4118,10 +4723,7 @@ var SolidClient = (function (exports) {
       await config.fetch(dummyUrl, { method: "DELETE" });
       const containerInfoResponse = await config.fetch(url, { method: "HEAD" });
       const resourceInfo = internal_parseResourceInfo(containerInfoResponse);
-      const containerDataset = Object.assign(dataset(), {
-          internal_changeLog: { additions: [], deletions: [] },
-          internal_resourceInfo: resourceInfo,
-      });
+      const containerDataset = freeze(Object.assign(Object.assign({}, createSolidDataset()), { internal_changeLog: { additions: [], deletions: [] }, internal_resourceInfo: resourceInfo }));
       return containerDataset;
   };
   function isSourceIriEqualTo(dataset, iri) {
@@ -4159,7 +4761,7 @@ var SolidClient = (function (exports) {
   async function saveSolidDatasetInContainer(containerUrl, solidDataset, options = internal_defaultFetchOptions) {
       const config = Object.assign(Object.assign({}, internal_defaultFetchOptions), options);
       containerUrl = internal_toIriString(containerUrl);
-      const rawTurtle = await triplesToTurtle(Array.from(solidDataset).map(getNamedNodesForLocalNodes));
+      const rawTurtle = await triplesToTurtle(toRdfJsQuads(solidDataset).map(getNamedNodesForLocalNodes));
       const headers = {
           "Content-Type": "text/turtle",
           Link: `<${ldp.Resource}>; rel="type"`,
@@ -4188,7 +4790,7 @@ var SolidClient = (function (exports) {
               sourceIri: resourceIri,
           },
       };
-      const resourceWithResourceInfo = Object.assign(internal_cloneResource(solidDataset), resourceInfo);
+      const resourceWithResourceInfo = freeze(Object.assign(Object.assign({}, solidDataset), resourceInfo));
       const resourceWithResolvedIris = resolveLocalIrisInSolidDataset(resourceWithResourceInfo);
       return resourceWithResolvedIris;
   }
@@ -4242,7 +4844,7 @@ var SolidClient = (function (exports) {
               sourceIri: resourceIri,
           },
       };
-      const resourceWithResourceInfo = Object.assign(dataset(), resourceInfo);
+      const resourceWithResourceInfo = freeze(Object.assign(Object.assign({}, createSolidDataset()), resourceInfo));
       return resourceWithResourceInfo;
   }
   /**
@@ -4292,7 +4894,7 @@ var SolidClient = (function (exports) {
   function solidDatasetAsMarkdown(solidDataset) {
       let readableSolidDataset = "";
       if (hasResourceInfo(solidDataset)) {
-          readableSolidDataset += `# SolidDataset: ${solidDataset.internal_resourceInfo.sourceIri}\n`;
+          readableSolidDataset += `# SolidDataset: ${getSourceUrl(solidDataset)}\n`;
       }
       else {
           readableSolidDataset += `# SolidDataset (no URL yet)\n`;
@@ -4358,7 +4960,8 @@ var SolidClient = (function (exports) {
           var _a, _b;
           var _c;
           const subjectNode = isLocalNode(deletion.subject)
-              ? resolveIriForLocalNode(deletion.subject, getSourceUrl(solidDataset))
+              ? /* istanbul ignore next: Unsaved deletions should be removed from the additions list instead, so this code path shouldn't be hit: */
+                  resolveIriForLocalNode(deletion.subject, getSourceUrl(solidDataset))
               : deletion.subject;
           if (!isNamedNode$1(subjectNode) || !isNamedNode$1(deletion.predicate)) {
               return;
@@ -4376,7 +4979,8 @@ var SolidClient = (function (exports) {
           var _a, _b;
           var _c;
           const subjectNode = isLocalNode(addition.subject)
-              ? resolveIriForLocalNode(addition.subject, getSourceUrl(solidDataset))
+              ? /* istanbul ignore next: setThing already resolves local Subjects when adding them, so this code path should never be hit. */
+                  resolveIriForLocalNode(addition.subject, getSourceUrl(solidDataset))
               : addition.subject;
           if (!isNamedNode$1(subjectNode) || !isNamedNode$1(addition.predicate)) {
               return;
@@ -4393,7 +4997,7 @@ var SolidClient = (function (exports) {
       return changeLogsByThingAndProperty;
   }
   function getReadableChangeLogSummary(solidDataset, thing) {
-      const subject = internal_toNode(thing);
+      const subject = DataFactory$1.namedNode(thing.url);
       const nrOfAdditions = solidDataset.internal_changeLog.additions.reduce((count, addition) => (addition.subject.equals(subject) ? count + 1 : count), 0);
       const nrOfDeletions = solidDataset.internal_changeLog.deletions.reduce((count, deletion) => (deletion.subject.equals(subject) ? count + 1 : count), 0);
       const additionString = nrOfAdditions === 1
@@ -4403,30 +5007,60 @@ var SolidClient = (function (exports) {
       return `(${additionString} / ${deletionString})`;
   }
   function getNamedNodesForLocalNodes(quad) {
-      const subject = isLocalNode(quad.subject)
+      const subject = isNamedNode$1(quad.subject)
           ? getNamedNodeFromLocalNode(quad.subject)
-          : quad.subject;
-      const object = isLocalNode(quad.object)
+          : /* istanbul ignore next: We don't allow non-NamedNodes as the Subject, so this code path should never be hit: */
+              quad.subject;
+      const object = isNamedNode$1(quad.object)
           ? getNamedNodeFromLocalNode(quad.object)
           : quad.object;
-      return Object.assign(Object.assign({}, quad), { subject: subject, object: object });
+      return DataFactory$1.quad(subject, quad.predicate, object, quad.graph);
   }
-  function getNamedNodeFromLocalNode(localNode) {
-      return DataFactory$1.namedNode("#" + localNode.internal_name);
+  function getNamedNodeFromLocalNode(node) {
+      if (isLocalNodeIri(node.value)) {
+          return DataFactory$1.namedNode("#" + getLocalNodeName(node.value));
+      }
+      return node;
   }
   function resolveLocalIrisInSolidDataset(solidDataset) {
       const resourceIri = getSourceUrl(solidDataset);
-      const unresolvedQuads = Array.from(solidDataset);
-      unresolvedQuads.forEach((unresolvedQuad) => {
-          const resolvedQuad = resolveIriForLocalNodes(unresolvedQuad, resourceIri);
-          solidDataset.delete(unresolvedQuad);
-          solidDataset.add(resolvedQuad);
-      });
-      return solidDataset;
+      const defaultGraph = solidDataset.graphs.default;
+      const thingIris = Object.keys(defaultGraph);
+      const updatedDefaultGraph = thingIris.reduce((graphAcc, thingIri) => {
+          const resolvedThing = resolveLocalIrisInThing(graphAcc[thingIri], resourceIri);
+          const resolvedThingIri = isLocalNodeIri(thingIri)
+              ? `${resourceIri}#${getLocalNodeName(thingIri)}`
+              : thingIri;
+          const updatedGraph = Object.assign({}, graphAcc);
+          delete updatedGraph[thingIri];
+          updatedGraph[resolvedThingIri] = resolvedThing;
+          return freeze(updatedGraph);
+      }, defaultGraph);
+      const updatedGraphs = freeze(Object.assign(Object.assign({}, solidDataset.graphs), { default: updatedDefaultGraph }));
+      return freeze(Object.assign(Object.assign({}, solidDataset), { graphs: updatedGraphs }));
+  }
+  function resolveLocalIrisInThing(thing, baseIri) {
+      const predicateIris = Object.keys(thing.predicates);
+      const updatedPredicates = predicateIris.reduce((predicatesAcc, predicateIri) => {
+          var _a;
+          const namedNodes = (_a = predicatesAcc[predicateIri].namedNodes) !== null && _a !== void 0 ? _a : [];
+          if (namedNodes.every((namedNode) => !isLocalNodeIri(namedNode))) {
+              // This Predicate has no local node Objects, so return it unmodified:
+              return predicatesAcc;
+          }
+          const updatedNamedNodes = freeze(namedNodes.map((namedNode) => isLocalNodeIri(namedNode)
+              ? `${baseIri}#${getLocalNodeName(namedNode)}`
+              : namedNode));
+          const updatedPredicate = freeze(Object.assign(Object.assign({}, predicatesAcc[predicateIri]), { namedNodes: updatedNamedNodes }));
+          return freeze(Object.assign(Object.assign({}, predicatesAcc), { [predicateIri]: updatedPredicate }));
+      }, thing.predicates);
+      return freeze(Object.assign(Object.assign({}, thing), { predicates: updatedPredicates, url: isLocalNodeIri(thing.url)
+              ? `${baseIri}#${getLocalNodeName(thing.url)}`
+              : thing.url }));
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -4461,14 +5095,12 @@ var SolidClient = (function (exports) {
    */
   function mockSolidDatasetFrom(url) {
       const solidDataset = createSolidDataset();
-      const solidDatasetWithResourceInfo = Object.assign(solidDataset, {
-          internal_resourceInfo: {
+      const solidDatasetWithResourceInfo = Object.assign(Object.assign({}, solidDataset), { internal_resourceInfo: {
               sourceIri: internal_toIriString(url),
               isRawData: false,
               contentType: "text/turtle",
               linkedResources: {},
-          },
-      });
+          } });
       return solidDatasetWithResourceInfo;
   }
   /**
@@ -4539,7 +5171,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -4571,17 +5203,35 @@ var SolidClient = (function (exports) {
    * @returns A new Thing equal to the input Thing with the given value added for the given Property.
    */
   const addUrl = (thing, property, url) => {
+      var _a, _b;
       internal_throwIfNotThing(thing);
       if (!internal_isValidUrl(property)) {
           throw new ValidPropertyUrlExpectedError(property);
       }
-      const predicateNode = asNamedNode(property);
-      const newThing = internal_cloneThing(thing);
       if (!isThing(url) && !internal_isValidUrl(url)) {
           throw new ValidValueUrlExpectedError(url);
       }
-      newThing.add(DataFactory$1.quad(internal_toNode(newThing), predicateNode, internal_toNode(url)));
-      return newThing;
+      const predicateIri = internal_toIriString(property);
+      const existingPredicate = (_a = thing.predicates[predicateIri]) !== null && _a !== void 0 ? _a : {};
+      const existingNamedNodes = (_b = existingPredicate.namedNodes) !== null && _b !== void 0 ? _b : [];
+      let iriToAdd;
+      if (isNamedNode$1(url)) {
+          iriToAdd = url.value;
+      }
+      else if (typeof url === "string") {
+          iriToAdd = url;
+      }
+      else if (isThingLocal(url)) {
+          iriToAdd = url.url;
+      }
+      else {
+          iriToAdd = asIri(url);
+      }
+      const updatedNamedNodes = freeze(existingNamedNodes.concat(internal_toIriString(iriToAdd)));
+      const updatedPredicate = freeze(Object.assign(Object.assign({}, existingPredicate), { namedNodes: updatedNamedNodes }));
+      const updatedPredicates = freeze(Object.assign(Object.assign({}, thing.predicates), { [predicateIri]: updatedPredicate }));
+      const updatedThing = freeze(Object.assign(Object.assign({}, thing), { predicates: updatedPredicates }));
+      return updatedThing;
   };
   /** @hidden Alias for [[addUrl]] for those who prefer IRI terminology. */
   const addIri = addUrl;
@@ -4616,6 +5266,40 @@ var SolidClient = (function (exports) {
   const addDatetime = (thing, property, value) => {
       internal_throwIfNotThing(thing);
       return addLiteralOfType(thing, property, serializeDatetime(value), xmlSchemaTypes.dateTime);
+  };
+  /**
+   * Create a new Thing with a date added for a Property.
+   *
+   * This preserves existing values for the given Property. To replace them, see [[setDate]].
+   *
+   * The original `thing` is not modified; this function returns a cloned Thing with updated values.
+   *
+   * @param thing Thing to add a date value to.
+   * @param property Property for which to add the given date value.
+   * @param value Date to add to `thing` for the given `property`.
+   * @returns A new Thing equal to the input Thing with the given value added for the given Property.
+   * @since 1.10.0
+   */
+  const addDate = (thing, property, value) => {
+      internal_throwIfNotThing(thing);
+      return addLiteralOfType(thing, property, serializeDate(value), xmlSchemaTypes.date);
+  };
+  /**
+   * Create a new Thing with a time added for a Property.
+   *
+   * This preserves existing values for the given Property. To replace them, see [[setDatetime]].
+   *
+   * The original `thing` is not modified; this function returns a cloned Thing with updated values.
+   *
+   * @param thing Thing to add a datetime value to.
+   * @param property Property for which to add the given datetime value.
+   * @param value time to add to `thing` for the given `property`.
+   * @returns A new Thing equal to the input Thing with the given value added for the given Property.
+   * @since 1.10.0
+   */
+  const addTime = (thing, property, value) => {
+      internal_throwIfNotThing(thing);
+      return addLiteralOfType(thing, property, serializeTime(value), xmlSchemaTypes.time);
   };
   /**
    * Create a new Thing with a decimal added for a Property.
@@ -4663,9 +5347,22 @@ var SolidClient = (function (exports) {
    * @returns A new Thing equal to the input Thing with the given value added for the given Property.
    */
   function addStringWithLocale(thing, property, value, locale) {
+      var _a, _b, _c;
       internal_throwIfNotThing(thing);
-      const literal = DataFactory$1.literal(value, normalizeLocale(locale));
-      return addLiteral(thing, property, literal);
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
+      }
+      const predicateIri = internal_toIriString(property);
+      const normalizedLocale = normalizeLocale(locale);
+      const existingPredicate = (_a = thing.predicates[predicateIri]) !== null && _a !== void 0 ? _a : {};
+      const existingLangStrings = (_b = existingPredicate.langStrings) !== null && _b !== void 0 ? _b : {};
+      const existingStringsInLocale = (_c = existingLangStrings[normalizedLocale]) !== null && _c !== void 0 ? _c : [];
+      const updatedStringsInLocale = freeze(existingStringsInLocale.concat(value));
+      const updatedLangStrings = freeze(Object.assign(Object.assign({}, existingLangStrings), { [normalizedLocale]: updatedStringsInLocale }));
+      const updatedPredicate = freeze(Object.assign(Object.assign({}, existingPredicate), { langStrings: updatedLangStrings }));
+      const updatedPredicates = freeze(Object.assign(Object.assign({}, thing.predicates), { [predicateIri]: updatedPredicate }));
+      const updatedThing = freeze(Object.assign(Object.assign({}, thing), { predicates: updatedPredicates }));
+      return updatedThing;
   }
   /**
    * Create a new Thing with an unlocalised string added for a Property.
@@ -4697,8 +5394,7 @@ var SolidClient = (function (exports) {
    * @returns A new Thing equal to the input Thing with the given value added for the given Property.
    */
   function addNamedNode(thing, property, value) {
-      internal_throwIfNotThing(thing);
-      return addTerm(thing, property, value);
+      return addUrl(thing, property, value.value);
   }
   /**
    * Create a new Thing with a Literal added for a Property.
@@ -4715,7 +5411,14 @@ var SolidClient = (function (exports) {
    */
   function addLiteral(thing, property, value) {
       internal_throwIfNotThing(thing);
-      return addTerm(thing, property, value);
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
+      }
+      const typeIri = value.datatype.value;
+      if (typeIri === xmlSchemaTypes.langString) {
+          return addStringWithLocale(thing, property, value.value, value.language);
+      }
+      return addLiteralOfType(thing, property, value.value, value.datatype.value);
   }
   /**
    * Creates a new Thing with a Term added for a Property.
@@ -4732,22 +5435,49 @@ var SolidClient = (function (exports) {
    * @since 0.3.0
    */
   function addTerm(thing, property, value) {
+      var _a, _b;
+      if (value.termType === "NamedNode") {
+          return addNamedNode(thing, property, value);
+      }
+      if (value.termType === "Literal") {
+          return addLiteral(thing, property, value);
+      }
+      if (value.termType === "BlankNode") {
+          internal_throwIfNotThing(thing);
+          if (!internal_isValidUrl(property)) {
+              throw new ValidPropertyUrlExpectedError(property);
+          }
+          const predicateIri = internal_toIriString(property);
+          const existingPredicate = (_a = thing.predicates[predicateIri]) !== null && _a !== void 0 ? _a : {};
+          const existingBlankNodes = (_b = existingPredicate.blankNodes) !== null && _b !== void 0 ? _b : [];
+          const updatedBlankNodes = freeze(existingBlankNodes.concat(getBlankNodeId(value)));
+          const updatedPredicate = freeze(Object.assign(Object.assign({}, existingPredicate), { blankNodes: updatedBlankNodes }));
+          const updatedPredicates = freeze(Object.assign(Object.assign({}, thing.predicates), { [predicateIri]: updatedPredicate }));
+          const updatedThing = freeze(Object.assign(Object.assign({}, thing), { predicates: updatedPredicates }));
+          return updatedThing;
+      }
+      throw new Error(`Term type [${value.termType}] is not supported by @inrupt/solid-client.`);
+  }
+  function addLiteralOfType(thing, property, value, type) {
+      var _a, _b, _c;
       internal_throwIfNotThing(thing);
       if (!internal_isValidUrl(property)) {
           throw new ValidPropertyUrlExpectedError(property);
       }
-      const predicateNode = asNamedNode(property);
-      const newThing = internal_cloneThing(thing);
-      newThing.add(DataFactory$1.quad(internal_toNode(newThing), predicateNode, value));
-      return newThing;
-  }
-  function addLiteralOfType(thing, property, value, type) {
-      const literal = DataFactory$1.literal(value, DataFactory$1.namedNode(type));
-      return addLiteral(thing, property, literal);
+      const predicateIri = internal_toIriString(property);
+      const existingPredicate = (_a = thing.predicates[predicateIri]) !== null && _a !== void 0 ? _a : {};
+      const existingLiterals = (_b = existingPredicate.literals) !== null && _b !== void 0 ? _b : {};
+      const existingValuesOfType = (_c = existingLiterals[type]) !== null && _c !== void 0 ? _c : [];
+      const updatedValuesOfType = freeze(existingValuesOfType.concat(value));
+      const updatedLiterals = freeze(Object.assign(Object.assign({}, existingLiterals), { [type]: updatedValuesOfType }));
+      const updatedPredicate = freeze(Object.assign(Object.assign({}, existingPredicate), { literals: updatedLiterals }));
+      const updatedPredicates = freeze(Object.assign(Object.assign({}, thing.predicates), { [predicateIri]: updatedPredicate }));
+      const updatedThing = freeze(Object.assign(Object.assign({}, thing), { predicates: updatedPredicates }));
+      return updatedThing;
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -4771,9 +5501,10 @@ var SolidClient = (function (exports) {
       if (!internal_isValidUrl(property)) {
           throw new ValidPropertyUrlExpectedError(property);
       }
-      const predicateNode = asNamedNode(property);
-      const updatedThing = internal_filterThing(thing, (quad) => !quad.predicate.equals(predicateNode));
-      return updatedThing;
+      const predicateIri = internal_toIriString(property);
+      const newPredicates = Object.assign({}, thing.predicates);
+      delete newPredicates[predicateIri];
+      return freeze(Object.assign(Object.assign({}, thing), { predicates: freeze(newPredicates) }));
   }
   /**
    * Create a new Thing with the given URL removed for the given Property.
@@ -4786,25 +5517,24 @@ var SolidClient = (function (exports) {
    * @returns A new Thing equal to the input Thing with the given value removed for the given Property.
    */
   const removeUrl = (thing, property, value) => {
+      var _a, _b, _c;
       internal_throwIfNotThing(thing);
       if (!internal_isValidUrl(property)) {
           throw new ValidPropertyUrlExpectedError(property);
       }
-      const predicateNode = asNamedNode(property);
+      const predicateIri = internal_toIriString(property);
       if (!isThing(value) && !internal_isValidUrl(value)) {
           throw new ValidValueUrlExpectedError(value);
       }
-      const iriNode = isNamedNode$1(value)
-          ? value
+      const iriToRemove = isNamedNode$1(value)
+          ? value.value
           : typeof value === "string"
-              ? asNamedNode(value)
-              : asNamedNode(asIri(value));
-      const updatedThing = internal_filterThing(thing, (quad) => {
-          return (!quad.predicate.equals(predicateNode) ||
-              !isNamedNode$1(quad.object) ||
-              !quad.object.equals(iriNode));
-      });
-      return updatedThing;
+              ? value
+              : asIri(value);
+      const updatedNamedNodes = freeze((_c = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.namedNodes) === null || _b === void 0 ? void 0 : _b.filter((namedNode) => namedNode.toLowerCase() !== iriToRemove.toLowerCase())) !== null && _c !== void 0 ? _c : []);
+      const updatedPredicate = freeze(Object.assign(Object.assign({}, thing.predicates[predicateIri]), { namedNodes: updatedNamedNodes }));
+      const updatedPredicates = freeze(Object.assign(Object.assign({}, thing.predicates), { [predicateIri]: updatedPredicate }));
+      return freeze(Object.assign(Object.assign({}, thing), { predicates: updatedPredicates }));
   };
   /** @hidden Alias of [[removeUrl]] for those who prefer IRI terminology. */
   const removeIri = removeUrl;
@@ -4835,6 +5565,59 @@ var SolidClient = (function (exports) {
   const removeDatetime = (thing, property, value) => {
       internal_throwIfNotThing(thing);
       return removeLiteralMatching(thing, property, xmlSchemaTypes.dateTime, (foundDatetime) => { var _a; return ((_a = deserializeDatetime(foundDatetime)) === null || _a === void 0 ? void 0 : _a.getTime()) === value.getTime(); });
+  };
+  /**
+   * Create a new Thing with the given date removed for the given Property.
+   *
+   * The original `thing` is not modified; this function returns a cloned Thing with updated values.
+   *
+   * @param thing Thing to remove a date value from.
+   * @param property Property for which to remove the given date value.
+   * @param value Date to remove from `thing` for the given `property`.
+   * @returns A new Thing equal to the input Thing with the given value removed for the given Property.
+   * @since 1.10.0
+   */
+  const removeDate = (thing, property, value) => {
+      internal_throwIfNotThing(thing);
+      return removeLiteralMatching(thing, property, xmlSchemaTypes.date, function (foundDate) {
+          const deserializedDate = deserializeDate(foundDate);
+          if (deserializedDate) {
+              return (deserializedDate.getFullYear() === value.getFullYear() &&
+                  deserializedDate.getMonth() === value.getMonth() &&
+                  deserializedDate.getDate() === value.getDate());
+          }
+          else {
+              return false;
+          }
+      });
+  };
+  /**
+   * Create a new Thing with the given datetime removed for the given Property.
+   *
+   * The original `thing` is not modified; this function returns a cloned Thing with updated values.
+   *
+   * @param thing Thing to remove a datetime value from.
+   * @param property Property for which to remove the given datetime value.
+   * @param value Time to remove from `thing` for the given `property`.
+   * @returns A new Thing equal to the input Thing with the given value removed for the given Property.
+   * @since 1.10.0
+   */
+  const removeTime = (thing, property, value) => {
+      internal_throwIfNotThing(thing);
+      return removeLiteralMatching(thing, property, xmlSchemaTypes.time, function (foundTime) {
+          const deserializedTime = deserializeTime(foundTime);
+          if (deserializedTime) {
+              return (deserializedTime.hour === value.hour &&
+                  deserializedTime.minute === value.minute &&
+                  deserializedTime.second === value.second &&
+                  deserializedTime.millisecond === value.millisecond &&
+                  deserializedTime.timezoneHourOffset === value.timezoneHourOffset &&
+                  deserializedTime.timezoneMinuteOffset === value.timezoneMinuteOffset);
+          }
+          else {
+              return false;
+          }
+      });
   };
   /**
    * Create a new Thing with the given decimal removed for the given Property.
@@ -4876,11 +5659,26 @@ var SolidClient = (function (exports) {
    * @returns A new Thing equal to the input Thing with the given value removed for the given Property.
    */
   function removeStringWithLocale(thing, property, value, locale) {
+      var _a, _b;
       internal_throwIfNotThing(thing);
-      // Note: Due to how the `DataFactory.literal` constructor behaves, this function
-      // must call directly `removeLiteral` directly, with the locale as the data
-      // type of the Literal (which is not a valid NamedNode).
-      return removeLiteral(thing, property, DataFactory$1.literal(value, normalizeLocale(locale)));
+      if (!internal_isValidUrl(property)) {
+          throw new ValidPropertyUrlExpectedError(property);
+      }
+      const predicateIri = internal_toIriString(property);
+      const existingLangStrings = (_b = (_a = thing.predicates[predicateIri]) === null || _a === void 0 ? void 0 : _a.langStrings) !== null && _b !== void 0 ? _b : {};
+      const matchingLocale = Object.keys(existingLangStrings).find((existingLocale) => normalizeLocale(existingLocale) === normalizeLocale(locale) &&
+          Array.isArray(existingLangStrings[existingLocale]) &&
+          existingLangStrings[existingLocale].length > 0);
+      if (typeof matchingLocale !== "string") {
+          // Nothing to remove.
+          return thing;
+      }
+      const existingStringsInLocale = existingLangStrings[matchingLocale];
+      const updatedStringsInLocale = freeze(existingStringsInLocale.filter((existingString) => existingString !== value));
+      const updatedLangStrings = freeze(Object.assign(Object.assign({}, existingLangStrings), { [matchingLocale]: updatedStringsInLocale }));
+      const updatedPredicate = freeze(Object.assign(Object.assign({}, thing.predicates[predicateIri]), { langStrings: updatedLangStrings }));
+      const updatedPredicates = freeze(Object.assign(Object.assign({}, thing.predicates), { [predicateIri]: updatedPredicate }));
+      return freeze(Object.assign(Object.assign({}, thing), { predicates: updatedPredicates }));
   }
   /**
    * Create a new Thing with the given unlocalised string removed for the given Property.
@@ -4904,17 +5702,7 @@ var SolidClient = (function (exports) {
    * @returns A new Thing equal to the input Thing with the given value removed for the given Property.
    */
   function removeNamedNode(thing, property, value) {
-      internal_throwIfNotThing(thing);
-      if (!internal_isValidUrl(property)) {
-          throw new ValidPropertyUrlExpectedError(property);
-      }
-      const predicateNode = asNamedNode(property);
-      const updatedThing = internal_filterThing(thing, (quad) => {
-          return (!quad.predicate.equals(predicateNode) ||
-              !isNamedNode$1(quad.object) ||
-              !quad.object.equals(value));
-      });
-      return updatedThing;
+      return removeUrl(thing, property, value.value);
   }
   /**
    * @ignore This should not be needed due to the other remove*() functions. If you do find yourself needing it, please file a feature request for your use case.
@@ -4924,16 +5712,24 @@ var SolidClient = (function (exports) {
    * @returns A new Thing equal to the input Thing with the given value removed for the given Property.
    */
   function removeLiteral(thing, property, value) {
+      var _a, _b, _c;
       internal_throwIfNotThing(thing);
       if (!internal_isValidUrl(property)) {
           throw new ValidPropertyUrlExpectedError(property);
       }
-      const predicateNode = asNamedNode(property);
-      const updatedThing = internal_filterThing(thing, (quad) => {
-          return (!quad.predicate.equals(predicateNode) ||
-              !isLiteral$1(quad.object) ||
-              !quad.object.equals(value));
-      });
+      const typeIri = value.datatype.value;
+      if (typeIri === xmlSchemaTypes.langString) {
+          return removeStringWithLocale(thing, property, value.value, value.language);
+      }
+      const predicateIri = internal_toIriString(property);
+      const existingPredicateValues = (_a = thing.predicates[predicateIri]) !== null && _a !== void 0 ? _a : {};
+      const existingLiterals = (_b = existingPredicateValues.literals) !== null && _b !== void 0 ? _b : {};
+      const existingValuesOfType = (_c = existingLiterals[typeIri]) !== null && _c !== void 0 ? _c : [];
+      const updatedValues = freeze(existingValuesOfType.filter((existingValue) => existingValue !== value.value));
+      const updatedLiterals = freeze(Object.assign(Object.assign({}, existingLiterals), { [typeIri]: updatedValues }));
+      const updatedPredicate = freeze(Object.assign(Object.assign({}, existingPredicateValues), { literals: updatedLiterals }));
+      const updatedPredicates = freeze(Object.assign(Object.assign({}, thing.predicates), { [predicateIri]: updatedPredicate }));
+      const updatedThing = freeze(Object.assign(Object.assign({}, thing), { predicates: updatedPredicates }));
       return updatedThing;
   }
   /**
@@ -4943,28 +5739,24 @@ var SolidClient = (function (exports) {
    * @param matcher Function that returns true if the given value is an equivalent serialisation of the value to remove. For example, when removing a `false` boolean, the matcher should return true for both "0" and "false".
    */
   function removeLiteralMatching(thing, property, type, matcher) {
+      var _a, _b, _c;
       if (!internal_isValidUrl(property)) {
           throw new ValidPropertyUrlExpectedError(property);
       }
-      const predicateNode = asNamedNode(property);
-      const updatedThing = internal_filterThing(thing, (quad) => {
-          // Copy every value from the old thing into the new thing, unless it:
-          return !(
-          // has the predicate of the value-to-be-removed,
-          (quad.predicate.equals(predicateNode) &&
-              // also is a literal
-              isLiteral$1(quad.object) &&
-              // of the same type as the value-to-be-removed,
-              quad.object.datatype.equals(DataFactory$1.namedNode(type)) &&
-              // and has a value determined to be equal to the value-to-be-removed
-              // by the given matcher (i.e. because their serialisations are equal):
-              matcher(quad.object.value)));
-      });
+      const predicateIri = internal_toIriString(property);
+      const existingPredicateValues = (_a = thing.predicates[predicateIri]) !== null && _a !== void 0 ? _a : {};
+      const existingLiterals = (_b = existingPredicateValues.literals) !== null && _b !== void 0 ? _b : {};
+      const existingValuesOfType = (_c = existingLiterals[type]) !== null && _c !== void 0 ? _c : [];
+      const updatedValues = freeze(existingValuesOfType.filter((existingValue) => !matcher(existingValue)));
+      const updatedLiterals = freeze(Object.assign(Object.assign({}, existingLiterals), { [type]: updatedValues }));
+      const updatedPredicate = freeze(Object.assign(Object.assign({}, existingPredicateValues), { literals: updatedLiterals }));
+      const updatedPredicates = freeze(Object.assign(Object.assign({}, thing.predicates), { [predicateIri]: updatedPredicate }));
+      const updatedThing = freeze(Object.assign(Object.assign({}, thing), { predicates: updatedPredicates }));
       return updatedThing;
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -5003,10 +5795,7 @@ var SolidClient = (function (exports) {
       if (!isThing(url) && !internal_isValidUrl(url)) {
           throw new ValidValueUrlExpectedError(url);
       }
-      const newThing = removeAll(thing, property);
-      const predicateNode = asNamedNode(property);
-      newThing.add(DataFactory$1.quad(internal_toNode(newThing), predicateNode, internal_toNode(url)));
-      return newThing;
+      return addUrl(removeAll(thing, property), property, url);
   };
   /** @hidden Alias of [[setUrl]] for those who prefer IRI terminology. */
   const setIri = setUrl;
@@ -5024,7 +5813,7 @@ var SolidClient = (function (exports) {
    */
   const setBoolean = (thing, property, value) => {
       internal_throwIfNotThing(thing);
-      return setLiteralOfType(thing, property, serializeBoolean(value), xmlSchemaTypes.boolean);
+      return addBoolean(removeAll(thing, property), property, value);
   };
   /**
    * Create a new Thing with existing values replaced by the given datetime for the given Property.
@@ -5040,7 +5829,41 @@ var SolidClient = (function (exports) {
    */
   const setDatetime = (thing, property, value) => {
       internal_throwIfNotThing(thing);
-      return setLiteralOfType(thing, property, serializeDatetime(value), xmlSchemaTypes.dateTime);
+      return addDatetime(removeAll(thing, property), property, value);
+  };
+  /**
+   * Create a new Thing with existing values replaced by the given date for the given Property.
+   *
+   * To preserve existing values, see [[addDate]].
+   *
+   * The original `thing` is not modified; this function returns a cloned Thing with updated values.
+   *
+   * @param thing Thing to set an date value on.
+   * @param property Property for which to set the given date value.
+   * @param value Date to set on `thing` for the given `property`.
+   * @returns A new Thing equal to the input Thing with existing values replaced by the given value for the given Property.
+   * @since 1.10.0
+   */
+  const setDate = (thing, property, value) => {
+      internal_throwIfNotThing(thing);
+      return addDate(removeAll(thing, property), property, value);
+  };
+  /**
+   * Create a new Thing with existing values replaced by the given time for the given Property.
+   *
+   * To preserve existing values, see [[addTime]].
+   *
+   * The original `thing` is not modified; this function returns a cloned Thing with updated values.
+   *
+   * @param thing Thing to set an time value on.
+   * @param property Property for which to set the given time value.
+   * @param value time to set on `thing` for the given `property`.
+   * @returns A new Thing equal to the input Thing with existing values replaced by the given value for the given Property.
+   * @since 1.10.0
+   */
+  const setTime = (thing, property, value) => {
+      internal_throwIfNotThing(thing);
+      return addTime(removeAll(thing, property), property, value);
   };
   /**
    * Create a new Thing with existing values replaced by the given decimal for the given Property.
@@ -5056,7 +5879,7 @@ var SolidClient = (function (exports) {
    */
   const setDecimal = (thing, property, value) => {
       internal_throwIfNotThing(thing);
-      return setLiteralOfType(thing, property, serializeDecimal(value), xmlSchemaTypes.decimal);
+      return addDecimal(removeAll(thing, property), property, value);
   };
   /**
    * Create a new Thing with existing values replaced by the given integer for the given Property.
@@ -5072,7 +5895,7 @@ var SolidClient = (function (exports) {
    */
   const setInteger = (thing, property, value) => {
       internal_throwIfNotThing(thing);
-      return setLiteralOfType(thing, property, serializeInteger(value), xmlSchemaTypes.integer);
+      return addInteger(removeAll(thing, property), property, value);
   };
   /**
    * Create a new Thing with existing values replaced by the given localised string for the given Property.
@@ -5089,8 +5912,7 @@ var SolidClient = (function (exports) {
    */
   function setStringWithLocale(thing, property, value, locale) {
       internal_throwIfNotThing(thing);
-      const literal = DataFactory$1.literal(value, normalizeLocale(locale));
-      return setLiteral(thing, property, literal);
+      return addStringWithLocale(removeAll(thing, property), property, value, locale);
   }
   /**
    * Create a new Thing with existing values replaced by the given unlocalised string for the given Property.
@@ -5106,7 +5928,7 @@ var SolidClient = (function (exports) {
    */
   const setStringNoLocale = (thing, property, value) => {
       internal_throwIfNotThing(thing);
-      return setLiteralOfType(thing, property, value, xmlSchemaTypes.string);
+      return addStringNoLocale(removeAll(thing, property), property, value);
   };
   /**
    * Create a new Thing with existing values replaced by the given Named Node for the given Property.
@@ -5123,7 +5945,7 @@ var SolidClient = (function (exports) {
    */
   function setNamedNode(thing, property, value) {
       internal_throwIfNotThing(thing);
-      return setTerm(thing, property, value);
+      return addNamedNode(removeAll(thing, property), property, value);
   }
   /**
    * Create a new Thing with existing values replaced by the given Literal for the given Property.
@@ -5140,7 +5962,7 @@ var SolidClient = (function (exports) {
    */
   function setLiteral(thing, property, value) {
       internal_throwIfNotThing(thing);
-      return setTerm(thing, property, value);
+      return addLiteral(removeAll(thing, property), property, value);
   }
   /**
    * Creates a new Thing with existing values replaced by the given Term for the given Property.
@@ -5161,18 +5983,121 @@ var SolidClient = (function (exports) {
       if (!internal_isValidUrl(property)) {
           throw new ValidPropertyUrlExpectedError(property);
       }
-      const newThing = removeAll(thing, property);
-      const predicateNode = asNamedNode(property);
-      newThing.add(DataFactory$1.quad(internal_toNode(newThing), predicateNode, value));
-      return newThing;
-  }
-  function setLiteralOfType(thing, property, value, type) {
-      const literal = DataFactory$1.literal(value, DataFactory$1.namedNode(type));
-      return setLiteral(thing, property, literal);
+      return addTerm(removeAll(thing, property), property, value);
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+  /**
+   * Create or modify a [[Thing]], setting multiple properties in a single expresssion.
+   *
+   * For example, you can create a new Thing and initialise several properties as follows:
+   *
+   *     const me = buildThing()
+   *       .addUrl(rdf.type, schema.Person)
+   *       .addStringNoLocale(schema.givenName, "Vincent")
+   *       .build();
+   *
+   * Take note of the final call to `.build()` to obtain the actual Thing.
+   *
+   * @param init Optionally pass an existing [[Thing]] to modify the properties of. If left empty, `buildThing` will initialise a new Thing.
+   * @returns a [[ThingBuilder]], a Fluent API that allows you to set multiple properties in a single expression.
+   * @since 1.9.0
+   */
+  function buildThing(init = createThing()) {
+      let thing = isThing(init) ? init : createThing(init);
+      function getAdder(adder) {
+          return (property, value) => {
+              thing = adder(thing, property, value);
+              return builder;
+          };
+      }
+      function getSetter(setter) {
+          return (property, value) => {
+              thing = setter(thing, property, value);
+              return builder;
+          };
+      }
+      function getRemover(remover) {
+          return (property, value) => {
+              thing = remover(thing, property, value);
+              return builder;
+          };
+      }
+      const builder = {
+          build: () => thing,
+          addUrl: getAdder(addUrl),
+          addIri: getAdder(addIri),
+          addBoolean: getAdder(addBoolean),
+          addDatetime: getAdder(addDatetime),
+          addDate: getAdder(addDate),
+          addTime: getAdder(addTime),
+          addDecimal: getAdder(addDecimal),
+          addInteger: getAdder(addInteger),
+          addStringNoLocale: getAdder(addStringNoLocale),
+          addStringWithLocale: (property, value, locale) => {
+              thing = addStringWithLocale(thing, property, value, locale);
+              return builder;
+          },
+          addNamedNode: getAdder(addNamedNode),
+          addLiteral: getAdder(addLiteral),
+          addTerm: getAdder(addTerm),
+          setUrl: getSetter(setUrl),
+          setIri: getSetter(setIri),
+          setBoolean: getSetter(setBoolean),
+          setDatetime: getSetter(setDatetime),
+          setDate: getSetter(setDate),
+          setTime: getSetter(setTime),
+          setDecimal: getSetter(setDecimal),
+          setInteger: getSetter(setInteger),
+          setStringNoLocale: getSetter(setStringNoLocale),
+          setStringWithLocale: (property, value, locale) => {
+              thing = setStringWithLocale(thing, property, value, locale);
+              return builder;
+          },
+          setNamedNode: getSetter(setNamedNode),
+          setLiteral: getSetter(setLiteral),
+          setTerm: getSetter(setTerm),
+          removeAll: (property) => {
+              thing = removeAll(thing, property);
+              return builder;
+          },
+          removeUrl: getRemover(removeUrl),
+          removeIri: getRemover(removeIri),
+          removeBoolean: getRemover(removeBoolean),
+          removeDatetime: getRemover(removeDatetime),
+          removeDate: getRemover(removeDate),
+          removeTime: getRemover(removeTime),
+          removeDecimal: getRemover(removeDecimal),
+          removeInteger: getRemover(removeInteger),
+          removeStringNoLocale: getRemover(removeStringNoLocale),
+          removeStringWithLocale: (property, value, locale) => buildThing(removeStringWithLocale(thing, property, value, locale)),
+          removeNamedNode: getRemover(removeNamedNode),
+          removeLiteral: getRemover(removeLiteral),
+      };
+      return builder;
+  }
+
+  /**
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -5204,14 +6129,47 @@ var SolidClient = (function (exports) {
    * @since 0.2.0
    */
   function mockThingFrom(url) {
-      const thing = Object.assign(dataset(), {
-          internal_url: internal_toIriString(url),
-      });
+      const iri = internal_toIriString(url);
+      const thing = {
+          type: "Subject",
+          predicates: {},
+          url: iri,
+      };
       return thing;
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+  /**
+   * @param linkedAccessResource A Resource exposed via the Link header of another Resource with rel="acl".
+   * @returns Whether that Resource is an ACP ACR or not (in which case it's likely a WAC ACL).
+   */
+  function isAcr(linkedAccessResource) {
+      const relTypeLinks = getLinkedResourceUrlAll(linkedAccessResource)["type"];
+      return (Array.isArray(relTypeLinks) &&
+          relTypeLinks.includes(acp.AccessControlResource));
+  }
+
+  /**
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -5245,14 +6203,27 @@ var SolidClient = (function (exports) {
               fallbackAcl: null,
           };
       }
-      const resourceAcl = await internal_fetchResourceAcl(resourceInfo, options);
-      const acl = resourceAcl === null
-          ? {
-              resourceAcl: null,
-              fallbackAcl: await internal_fetchFallbackAcl(resourceInfo, options),
+      try {
+          const resourceAcl = await internal_fetchResourceAcl(resourceInfo, options);
+          const acl = resourceAcl === null
+              ? {
+                  resourceAcl: null,
+                  fallbackAcl: await internal_fetchFallbackAcl(resourceInfo, options),
+              }
+              : { resourceAcl: resourceAcl, fallbackAcl: null };
+          return acl;
+      }
+      catch (e) {
+          /* istanbul ignore else: fetchResourceAcl swallows all non-AclIsAcrErrors */
+          if (e instanceof AclIsAcrError) {
+              return {
+                  resourceAcl: null,
+                  fallbackAcl: null,
+              };
           }
-          : { resourceAcl: resourceAcl, fallbackAcl: null };
-      return acl;
+          /* istanbul ignore next: fetchResourceAcl swallows all non-AclIsAcrErrors */
+          throw e;
+      }
   }
   /** @internal */
   async function internal_fetchResourceAcl(dataset, options = internal_defaultFetchOptions) {
@@ -5261,11 +6232,15 @@ var SolidClient = (function (exports) {
       }
       try {
           const aclSolidDataset = await getSolidDataset(dataset.internal_resourceInfo.aclUrl, options);
-          return Object.assign(aclSolidDataset, {
-              internal_accessTo: getSourceUrl(dataset),
-          });
+          if (isAcr(aclSolidDataset)) {
+              throw new AclIsAcrError(dataset, aclSolidDataset);
+          }
+          return freeze(Object.assign(Object.assign({}, aclSolidDataset), { internal_accessTo: getSourceUrl(dataset) }));
       }
       catch (e) {
+          if (e instanceof AclIsAcrError) {
+              throw e;
+          }
           // Since a Solid server adds a `Link` header to an ACL even if that ACL does not exist,
           // failure to fetch the ACL is expected to happen - we just return `null` and let callers deal
           // with it.
@@ -5381,7 +6356,7 @@ var SolidClient = (function (exports) {
   function isEmptyAclRule(aclRule) {
       // If there are Quads in there unrelated to Access Control,
       // this is not an empty ACL rule that can be deleted:
-      if (Array.from(aclRule).some((quad) => !isAclQuad(quad))) {
+      if (subjectToRdfJsQuads(aclRule.predicates, DataFactory$1.namedNode(aclRule.url), DataFactory$1.defaultGraph()).some((quad) => !isAclQuad(quad))) {
           return false;
       }
       // If the rule does not apply to any Resource, it is no longer working:
@@ -5518,7 +6493,7 @@ var SolidClient = (function (exports) {
       return targetRule;
   }
   function internal_setAcl(resource, acl) {
-      return Object.assign(resource, { internal_acl: acl });
+      return Object.assign(internal_cloneResource(resource), { internal_acl: acl });
   }
   const supportedActorPredicates = [
       acl.agent,
@@ -5589,7 +6564,7 @@ var SolidClient = (function (exports) {
    * @param access The Access Modes to grant to the Actor for the Resource.
    * @returns A new resource ACL initialised with the given `aclDataset` and `access` for the `agent`.
    */
-  function internal_setActorAccess$1(aclDataset, access, actorPredicate, accessType, actor) {
+  function internal_setActorAccess$2(aclDataset, access, actorPredicate, accessType, actor) {
       // First make sure that none of the pre-existing rules in the given ACL SolidDataset
       // give the Agent access to the Resource:
       let filteredAcl = aclDataset;
@@ -5621,9 +6596,18 @@ var SolidClient = (function (exports) {
   function internal_getResourceAcl(resource) {
       return resource.internal_acl.resourceAcl;
   }
+  /**
+   * This error indicates that, if we're following a Link with rel="acl",
+   * it does not result in a WAC ACL, but in an ACP ACR.
+   */
+  class AclIsAcrError extends Error {
+      constructor(sourceResource, aclResource) {
+          super(`[${getSourceIri(sourceResource)}] is governed by Access Control Policies in [${getSourceIri(aclResource)}] rather than by Web Access Control.`);
+      }
+  }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -5802,14 +6786,11 @@ var SolidClient = (function (exports) {
    * @returns An empty resource ACL for the given Resource.
    */
   function createAcl(targetResource) {
-      const emptyResourceAcl = Object.assign(dataset(), {
-          internal_accessTo: getSourceUrl(targetResource),
-          internal_resourceInfo: {
+      const emptyResourceAcl = freeze(Object.assign(Object.assign({}, createSolidDataset()), { internal_accessTo: getSourceUrl(targetResource), internal_resourceInfo: {
               sourceIri: targetResource.internal_resourceInfo.aclUrl,
               isRawData: false,
               linkedResources: {},
-          },
-      });
+          } }));
       return emptyResourceAcl;
   }
   /**
@@ -5856,9 +6837,7 @@ var SolidClient = (function (exports) {
           throw new Error(`Could not determine the location of the ACL for the Resource at [${getSourceUrl(resource)}]; possibly the current user does not have Control access to that Resource. Try calling \`hasAccessibleAcl()\` before calling \`saveAclFor()\`.`);
       }
       const savedDataset = await saveSolidDatasetAt(resource.internal_resourceInfo.aclUrl, resourceAcl, options);
-      const savedAclDataset = Object.assign(savedDataset, {
-          internal_accessTo: getSourceUrl(resource),
-      });
+      const savedAclDataset = Object.assign(Object.assign({}, savedDataset), { internal_accessTo: getSourceUrl(resource) });
       return savedAclDataset;
   }
   /**
@@ -5906,7 +6885,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -5939,7 +6918,7 @@ var SolidClient = (function (exports) {
    * @param agent WebID of the Agent for which to retrieve what access it has to the Resource.
    * @returns Access Modes that have been explicitly granted to the Agent for the given Resource, or `null` if it could not be determined (e.g. because the current user does not have Control access to a given Resource or its Container).
    */
-  function getAgentAccess$2(resourceInfo, agent) {
+  function getAgentAccess$3(resourceInfo, agent) {
       if (hasResourceAcl(resourceInfo)) {
           return getAgentResourceAccess(resourceInfo.internal_acl.resourceAcl, agent);
       }
@@ -5960,7 +6939,7 @@ var SolidClient = (function (exports) {
    * @param resourceInfo Information about the Resource to which Agents may have been granted access.
    * @returns Access Modes per Agent that have been explicitly granted for the given Resource, or `null` if it could not be determined (e.g. because the current user does not have Control access to a given Resource or its Container).
    */
-  function getAgentAccessAll$2(resourceInfo) {
+  function getAgentAccessAll$3(resourceInfo) {
       if (hasResourceAcl(resourceInfo)) {
           const resourceAcl = getResourceAcl(resourceInfo);
           return getAgentResourceAccessAll(resourceAcl);
@@ -6040,7 +7019,7 @@ var SolidClient = (function (exports) {
    * @returns A new resource ACL initialised with the given `aclDataset` and `access` for the `agent`.
    */
   function setAgentResourceAccess$1(aclDataset, agent, access) {
-      return internal_setActorAccess$1(aclDataset, access, acl.agent, "resource", agent);
+      return internal_setActorAccess$2(aclDataset, access, acl.agent, "resource", agent);
   }
   /**
    * ```{note}
@@ -6109,7 +7088,7 @@ var SolidClient = (function (exports) {
    * @returns A new default ACL initialised with the given `aclDataset` and `access` for the `agent`.
    */
   function setAgentDefaultAccess(aclDataset, agent, access) {
-      return internal_setActorAccess$1(aclDataset, access, acl.agent, "default", agent);
+      return internal_setActorAccess$2(aclDataset, access, acl.agent, "default", agent);
   }
   function getAgentAclRulesForAgent(aclRules, agent) {
       return internal_getAclRulesForIri(aclRules, agent, acl.agent);
@@ -6125,7 +7104,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -6301,7 +7280,7 @@ var SolidClient = (function (exports) {
    * @since 1.4.0
    */
   function setGroupResourceAccess$1(aclDataset, group, access) {
-      return internal_setActorAccess$1(aclDataset, access, acl.agentGroup, "resource", group);
+      return internal_setActorAccess$2(aclDataset, access, acl.agentGroup, "resource", group);
   }
   /**
    * ```{note}
@@ -6326,11 +7305,11 @@ var SolidClient = (function (exports) {
    * @since 1.4.0
    */
   function setGroupDefaultAccess(aclDataset, group, access) {
-      return internal_setActorAccess$1(aclDataset, access, acl.agentGroup, "default", group);
+      return internal_setActorAccess$2(aclDataset, access, acl.agentGroup, "default", group);
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -6362,7 +7341,7 @@ var SolidClient = (function (exports) {
    * @param resourceInfo Information about the Resource to which the given Agent may have been granted access.
    * @returns Access Modes granted to the public in general for the Resource, or `null` if it could not be determined (e.g. because the current user does not have Control Access to a given Resource or its Container).
    */
-  function getPublicAccess$2(resourceInfo) {
+  function getPublicAccess$3(resourceInfo) {
       if (hasResourceAcl(resourceInfo)) {
           return getPublicResourceAccess(resourceInfo.internal_acl.resourceAcl);
       }
@@ -6437,7 +7416,7 @@ var SolidClient = (function (exports) {
    * @returns A new resource ACL initialised with the given `aclDataset` and public `access`.
    */
   function setPublicResourceAccess$1(aclDataset, access) {
-      return internal_setActorAccess$1(aclDataset, access, acl.agentClass, "resource", foaf.Agent);
+      return internal_setActorAccess$2(aclDataset, access, acl.agentClass, "resource", foaf.Agent);
   }
   /**
    * ```{note}
@@ -6461,7 +7440,7 @@ var SolidClient = (function (exports) {
    * @returns A new default ACL initialised with the given `aclDataset` and public `access`.
    */
   function setPublicDefaultAccess(aclDataset, access) {
-      return internal_setActorAccess$1(aclDataset, access, acl.agentClass, "default", foaf.Agent);
+      return internal_setActorAccess$2(aclDataset, access, acl.agentClass, "default", foaf.Agent);
   }
   function getClassAclRulesForClass(aclRules, agentClass) {
       return aclRules.filter((rule) => appliesToClass(rule, agentClass));
@@ -6471,7 +7450,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -6498,7 +7477,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -6570,7 +7549,72 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+  const rdfJsDataset = dataset_1.dataset;
+  /**
+   * Convert an RDF/JS Dataset into a [[SolidDataset]]
+   *
+   * Parse an RDF/JS
+   * {@link https://rdf.js.org/dataset-spec/#datasetcore-interface DatasetCore},
+   * into a [[SolidDataset]]. Note that, when saving the returned SolidDataset to
+   * a Solid Pod, only Quads in the Default Graph will be stored.
+   *
+   * @param rdfJsDataset The source RDF/JS Dataset.
+   * @returns A [[SolidDataset]] containing the same data as the given RDF/JS Dataset.
+   * @since 1.9.0
+   */
+  function fromRdfJsDataset(rdfJsDataset) {
+      const dataset = {
+          graphs: { default: {} },
+          type: "Dataset",
+      };
+      const quads = Array.from(rdfJsDataset);
+      const chainBlankNodes = getChainBlankNodes(quads);
+      // Quads with chain Blank Nodes as their Subject will be parsed when those
+      // Blank Nodes are referred to in an Object. See `addRdfJsQuadToObjects`.
+      const quadsWithoutChainBlankNodeSubjects = quads.filter((quad) => chainBlankNodes.every((chainBlankNode) => !chainBlankNode.equals(quad.subject)));
+      return quadsWithoutChainBlankNodeSubjects.reduce((datasetAcc, quad) => addRdfJsQuadToDataset(datasetAcc, quad, {
+          otherQuads: quads,
+          chainBlankNodes: chainBlankNodes,
+      }), dataset);
+  }
+  /**
+   * Convert a [[SolidDataset]] into an RDF/JS Dataset
+   *
+   * Export a [[SolidDataset]] into an RDF/JS
+   * {@link https://rdf.js.org/dataset-spec/#datasetcore-interface DatasetCore}.
+   *
+   * @param set A [[SolidDataset]] to export into an RDF/JS Dataset.
+   * @param options Optional parameter that allows you to pass in your own RDF/JS DataFactory or DatasetCoreFactory.
+   * @returns An RDF/JS Dataset containing the data from the given SolidDataset.
+   * @since 1.9.0
+   */
+  function toRdfJsDataset(set, options = {}) {
+      var _a, _b;
+      const datasetFactory = (_b = (_a = options.datasetFactory) === null || _a === void 0 ? void 0 : _a.dataset) !== null && _b !== void 0 ? _b : rdfJsDataset;
+      return datasetFactory(toRdfJsQuads(set, options));
+  }
+
+  /**
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -6814,7 +7858,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -7224,7 +8268,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -7260,7 +8304,7 @@ var SolidClient = (function (exports) {
       const config = Object.assign(Object.assign({}, internal_defaultFetchOptions), options);
       const solidDataset = await getSolidDataset(urlString, config);
       const acp = await fetchAcr(solidDataset, config);
-      return Object.assign(solidDataset, acp);
+      return Object.assign(Object.assign({}, solidDataset), acp);
   }
   /**
    * ```{note} The Web Access Control specification is not yet finalised. As such, this
@@ -7299,7 +8343,7 @@ var SolidClient = (function (exports) {
       const config = Object.assign(Object.assign({}, internal_defaultFetchOptions), options);
       const resourceInfo = await getResourceInfo(urlString, config);
       const acp = await fetchAcr(resourceInfo, config);
-      return Object.assign(resourceInfo, acp);
+      return Object.assign(Object.assign({}, resourceInfo), acp);
   }
   /**
    * ```{note} The Web Access Control specification is not yet finalised. As such, this
@@ -7328,7 +8372,7 @@ var SolidClient = (function (exports) {
       }
       else {
           const acr = await fetchAcr(solidDataset, config);
-          return Object.assign(solidDataset, acr);
+          return Object.assign(Object.assign({}, solidDataset), acr);
       }
   }
   /**
@@ -7388,7 +8432,7 @@ var SolidClient = (function (exports) {
       }
       else {
           const acr = await fetchAcr(resourceInfo, config);
-          return Object.assign(resourceInfo, acr);
+          return Object.assign(Object.assign({}, resourceInfo), acr);
       }
   }
   /**
@@ -7420,7 +8464,29 @@ var SolidClient = (function (exports) {
           resource.internal_acp.acr !== null);
   }
   async function fetchAcr(resource, options) {
-      if (!hasLinkedAcr(resource)) {
+      let acrUrl = undefined;
+      if (hasLinkedAcr(resource)) {
+          // Whereas a Resource can generally have multiple linked Resources for the same relation,
+          // it can only have one Access Control Resource for that ACR to be valid.
+          // Hence the accessing of [0] directly:
+          acrUrl =
+              resource.internal_resourceInfo.linkedResources[acp.accessControl][0];
+      }
+      else if (hasAccessibleAcl(resource)) {
+          // The ACP proposal will be updated to expose the Access Control Resource
+          // via a Link header with rel="acl", just like WAC. That means that if
+          // an ACL is advertised, we can still fetch its metadata — if that indicates
+          // that it's actually an ACP Access Control Resource, then we can fetch that
+          // instead.
+          const aclResourceInfo = await getResourceInfo(resource.internal_resourceInfo.aclUrl, options);
+          if (isAcr(aclResourceInfo)) {
+              acrUrl = getSourceUrl(aclResourceInfo);
+          }
+      }
+      // If the Resource doesn't advertise an ACR via the old Link header,
+      // nor via a rel="acl" header, then return, indicating that no ACR could be
+      // fetched:
+      if (typeof acrUrl !== "string") {
           return {
               internal_acp: {
                   acr: null,
@@ -7429,11 +8495,7 @@ var SolidClient = (function (exports) {
       }
       let acr;
       try {
-          acr = await getSolidDataset(
-          // Whereas a Resource can generally have multiple linked Resources for the same relation,
-          // it can only have one Access Control Resource for that ACR to be valid.
-          // Hence the accessing of [0] directly:
-          resource.internal_resourceInfo.linkedResources[acp.accessControl][0], options);
+          acr = await getSolidDataset(acrUrl, options);
       }
       catch (e) {
           return {
@@ -7442,11 +8504,7 @@ var SolidClient = (function (exports) {
               },
           };
       }
-      getSourceUrl(resource);
-      getSourceUrl(acr);
-      const acrDataset = Object.assign(acr, {
-          accessTo: getSourceUrl(resource),
-      });
+      const acrDataset = Object.assign(Object.assign({}, acr), { accessTo: getSourceUrl(resource) });
       const acpInfo = {
           internal_acp: {
               acr: acrDataset,
@@ -7481,7 +8539,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -7915,7 +8973,7 @@ var SolidClient = (function (exports) {
    * @returns A list of the WebIDs of agents included in the rule.
    * @since 1.6.0
    */
-  function getAgentAll(rule) {
+  function getAgentAll$1(rule) {
       return getIriAll(rule, acp.agent).filter((agent) => agent !== acp.PublicAgent &&
           agent !== acp.AuthenticatedAgent &&
           agent !== acp.CreatorAgent);
@@ -7932,22 +8990,22 @@ var SolidClient = (function (exports) {
    * @returns A copy of the input rule, applying to a different set of agents.
    * @since 1.6.0
    */
-  function setAgent(rule, agent) {
+  function setAgent$1(rule, agent) {
       // Preserve the special agent classes authenticated and public, which we
       // don't want to overwrite with this function.
-      const isPublic = hasPublic(rule);
-      const isAuthenticated = hasAuthenticated(rule);
-      const isCreator = hasCreator(rule);
+      const isPublic = hasPublic$1(rule);
+      const isAuthenticated = hasAuthenticated$1(rule);
+      const isCreator = hasCreator$1(rule);
       let result = setIri(rule, acp.agent, agent);
       // Restore public and authenticated
       if (isPublic) {
-          result = setPublic(result);
+          result = setPublic$1(result);
       }
       if (isAuthenticated) {
-          result = setAuthenticated(result);
+          result = setAuthenticated$1(result);
       }
       if (isCreator) {
-          result = setCreator(result);
+          result = setCreator$1(result);
       }
       return result;
   }
@@ -7963,7 +9021,7 @@ var SolidClient = (function (exports) {
    * @returns A copy of the [[Rule]], applying to an additional agent.
    * @since 1.6.0
    */
-  function addAgent(rule, agent) {
+  function addAgent$1(rule, agent) {
       return addIri(rule, acp.agent, agent);
   }
   /**
@@ -7979,7 +9037,7 @@ var SolidClient = (function (exports) {
    * @returns A copy of the rule, not applying to the given agent.
    * @since 1.6.0
    */
-  function removeAgent(rule, agent) {
+  function removeAgent$1(rule, agent) {
       return removeIri(rule, acp.agent, agent);
   }
   /**
@@ -7992,6 +9050,7 @@ var SolidClient = (function (exports) {
    * @param rule The rule from which groups are read.
    * @returns A list of the [[URL]]'s of groups included in the rule.
    * @since 1.6.0
+   * @deprecated Access Control Policies will no longer support vcard:Group. You can re-use a Rule listing multiple Agents to get the same functionality.
    */
   function getGroupAll(rule) {
       return getIriAll(rule, acp.group);
@@ -8007,6 +9066,7 @@ var SolidClient = (function (exports) {
    * @param group The group the rule should apply to.
    * @returns A copy of the input rule, applying to a different set of groups.
    * @since 1.6.0
+   * @deprecated Access Control Policies will no longer support vcard:Group. You can re-use a Rule listing multiple Agents to get the same functionality.
    */
   function setGroup(rule, group) {
       return setIri(rule, acp.group, group);
@@ -8022,6 +9082,7 @@ var SolidClient = (function (exports) {
    * @param agent The group the [[Rule]] should apply to.
    * @returns A copy of the [[Rule]], applying to an additional group.
    * @since 1.6.0
+   * @deprecated Access Control Policies will no longer support vcard:Group. You can re-use a Rule listing multiple Agents to get the same functionality.
    */
   function addGroup(rule, group) {
       return addIri(rule, acp.group, group);
@@ -8037,6 +9098,7 @@ var SolidClient = (function (exports) {
    * @param agent The group the rule should no longer apply to.
    * @returns A copy of the rule, not applying to the given group.
    * @since 1.6.0
+   * @deprecated Access Control Policies will no longer support vcard:Group. You can re-use a Rule listing multiple Agents to get the same functionality.
    */
   function removeGroup(rule, group) {
       return removeIri(rule, acp.group, group);
@@ -8050,9 +9112,9 @@ var SolidClient = (function (exports) {
    *
    * @param rule The rule checked for public access.
    * @returns Whether the rule applies to any agent or not.
-   * @status 1.6.0
+   * @since 1.6.0
    */
-  function hasPublic(rule) {
+  function hasPublic$1(rule) {
       return (getIriAll(rule, acp.agent).filter((agent) => agent === acp.PublicAgent)
           .length > 0);
   }
@@ -8065,9 +9127,9 @@ var SolidClient = (function (exports) {
    *
    * @param rule The rule being modified.
    * @returns A copy of the rule, updated to apply to any agent.
-   * @status 1.6.0
+   * @since 1.6.0
    */
-  function setPublic(rule) {
+  function setPublic$1(rule) {
       // The second argument should not be part of the function signature,
       // so it's not in the parameter list:
       // eslint-disable-next-line prefer-rest-params
@@ -8085,9 +9147,9 @@ var SolidClient = (function (exports) {
    *
    * @param rule The rule being modified.
    * @returns A copy of the rule, updated to no longer apply to any agent.
-   * @status 1.6.0
+   * @since 1.6.0
    */
-  function removePublic(rule) {
+  function removePublic$1(rule) {
       return removeIri(rule, acp.agent, acp.PublicAgent);
   }
   /**
@@ -8099,9 +9161,9 @@ var SolidClient = (function (exports) {
    *
    * @param rule The rule checked for authenticated access.
    * @returns Whether the rule applies to any authenticated agent or not.
-   * @status 1.6.0
+   * @since 1.6.0
    */
-  function hasAuthenticated(rule) {
+  function hasAuthenticated$1(rule) {
       return (getIriAll(rule, acp.agent).filter((agent) => agent === acp.AuthenticatedAgent).length > 0);
   }
   /**
@@ -8113,9 +9175,9 @@ var SolidClient = (function (exports) {
    *
    * @param rule The rule being modified.
    * @returns A copy of the rule, updated to apply to any authenticated Agent.
-   * @status 1.6.0
+   * @since 1.6.0
    */
-  function setAuthenticated(rule) {
+  function setAuthenticated$1(rule) {
       // The second argument should not be part of the function signature,
       // so it's not in the parameter list:
       // eslint-disable-next-line prefer-rest-params
@@ -8133,9 +9195,9 @@ var SolidClient = (function (exports) {
    *
    * @param rule The rule being modified.
    * @returns A copy of the rule, updated to apply/not apply to any authenticated agent.
-   * @status 1.6.0
+   * @since 1.6.0
    */
-  function removeAuthenticated(rule) {
+  function removeAuthenticated$1(rule) {
       return removeIri(rule, acp.agent, acp.AuthenticatedAgent);
   }
   /**
@@ -8147,9 +9209,9 @@ var SolidClient = (function (exports) {
    *
    * @param rule The rule checked for authenticated access.
    * @returns Whether the rule applies to the creator of the Resource or not.
-   * @status 1.6.0
+   * @since 1.6.0
    */
-  function hasCreator(rule) {
+  function hasCreator$1(rule) {
       return (getIriAll(rule, acp.agent).filter((agent) => agent === acp.CreatorAgent)
           .length > 0);
   }
@@ -8162,9 +9224,9 @@ var SolidClient = (function (exports) {
    *
    * @param rule The rule being modified.
    * @returns A copy of the rule, updated to apply to the creator of a Resource.
-   * @status 1.6.0
+   * @since 1.6.0
    */
-  function setCreator(rule) {
+  function setCreator$1(rule) {
       // The second argument should not be part of the function signature,
       // so it's not in the parameter list:
       // eslint-disable-next-line prefer-rest-params
@@ -8182,9 +9244,9 @@ var SolidClient = (function (exports) {
    *
    * @param rule The rule being modified.
    * @returns A copy of the rule, updated to apply/not apply to the creator of a Resource.
-   * @status 1.6.0
+   * @since 1.6.0
    */
-  function removeCreator(rule) {
+  function removeCreator$1(rule) {
       return removeIri(rule, acp.agent, acp.CreatorAgent);
   }
   /**
@@ -8199,7 +9261,7 @@ var SolidClient = (function (exports) {
    * @returns A list of the WebIDs of clients included in the rule.
    * @since 1.6.0
    */
-  function getClientAll(rule) {
+  function getClientAll$1(rule) {
       return getIriAll(rule, acp.client).filter((client) => client !== solid.PublicOidcClient);
   }
   /**
@@ -8214,14 +9276,14 @@ var SolidClient = (function (exports) {
    * @returns A copy of the input rule, applying to a different set of Clients.
    * @since 1.6.0
    */
-  function setClient(rule, client) {
+  function setClient$1(rule, client) {
       // Preserve the special "any client" class, which we
       // don't want to overwrite with this function.
-      const anyClientEnabled = hasAnyClient(rule);
+      const anyClientEnabled = hasAnyClient$1(rule);
       let result = setIri(rule, acp.client, client);
       // Restore the "any client" class
       if (anyClientEnabled) {
-          result = setAnyClient(result);
+          result = setAnyClient$1(result);
       }
       return result;
   }
@@ -8237,7 +9299,7 @@ var SolidClient = (function (exports) {
    * @returns A copy of the [[Rule]], applying to an additional Client.
    * @since 1.6.0
    */
-  function addClient(rule, client) {
+  function addClient$1(rule, client) {
       return addIri(rule, acp.client, client);
   }
   /**
@@ -8252,7 +9314,7 @@ var SolidClient = (function (exports) {
    * @returns A copy of the rule, not applying to the given Client.
    * @since 1.6.0
    */
-  function removeClient(rule, client) {
+  function removeClient$1(rule, client) {
       return removeIri(rule, acp.client, client);
   }
   /**
@@ -8267,7 +9329,7 @@ var SolidClient = (function (exports) {
    * @returns Whether the rule applies to public clients.
    * @since 1.6.0
    */
-  function hasAnyClient(rule) {
+  function hasAnyClient$1(rule) {
       return (getIriAll(rule, acp.client).filter((client) => client === solid.PublicOidcClient).length > 0);
   }
   /**
@@ -8281,7 +9343,7 @@ var SolidClient = (function (exports) {
    * @returns A copy of the rule, updated to apply to any client
    * @since 1.6.0
    */
-  function setAnyClient(rule) {
+  function setAnyClient$1(rule) {
       return addIri(rule, acp.client, solid.PublicOidcClient);
   }
   /**
@@ -8295,7 +9357,7 @@ var SolidClient = (function (exports) {
    * @returns A copy of the rule, updated to no longer apply to any client
    * @since 1.6.0
    */
-  function removeAnyClient(rule) {
+  function removeAnyClient$1(rule) {
       return removeIri(rule, acp.client, solid.PublicOidcClient);
   }
   /**
@@ -8310,19 +9372,19 @@ var SolidClient = (function (exports) {
   function ruleAsMarkdown(rule) {
       let markdown = `## Rule: ${asUrl(rule)}\n\n`;
       let targetEnumeration = "";
-      if (hasPublic(rule)) {
+      if (hasPublic$1(rule)) {
           targetEnumeration += "- Everyone\n";
       }
-      if (hasAuthenticated(rule)) {
+      if (hasAuthenticated$1(rule)) {
           targetEnumeration += "- All authenticated agents\n";
       }
-      if (hasCreator(rule)) {
+      if (hasCreator$1(rule)) {
           targetEnumeration += "- The creator of this resource\n";
       }
-      if (hasAnyClient(rule)) {
+      if (hasAnyClient$1(rule)) {
           targetEnumeration += "- Users of any client application\n";
       }
-      const targetAgents = getAgentAll(rule);
+      const targetAgents = getAgentAll$1(rule);
       if (targetAgents.length > 0) {
           targetEnumeration += "- The following agents:\n  - ";
           targetEnumeration += targetAgents.join("\n  - ") + "\n";
@@ -8332,7 +9394,7 @@ var SolidClient = (function (exports) {
           targetEnumeration += "- Members of the following groups:\n  - ";
           targetEnumeration += targetGroups.join("\n  - ") + "\n";
       }
-      const targetClients = getClientAll(rule);
+      const targetClients = getClientAll$1(rule);
       if (targetClients.length > 0) {
           targetEnumeration += "- Users of the following client applications:\n  - ";
           targetEnumeration += targetClients.join("\n  - ") + "\n";
@@ -8345,7 +9407,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -8459,9 +9521,35 @@ var SolidClient = (function (exports) {
    *
    * @param policy The Policy on which to set the modes to allow.
    * @param modes Modes to allow for this Policy.
-   * @since 1.6.0
+   * @since Not released yet.
    */
-  function setAllowModes(policy, modes) {
+  function setAllowModesV2(policy, modes) {
+      let newPolicy = removeAll(policy, acp.allow);
+      if (modes.read === true) {
+          newPolicy = addIri(newPolicy, acp.allow, internal_accessModeIriStrings.read);
+      }
+      if (modes.append === true) {
+          newPolicy = addIri(newPolicy, acp.allow, internal_accessModeIriStrings.append);
+      }
+      if (modes.write === true) {
+          newPolicy = addIri(newPolicy, acp.allow, internal_accessModeIriStrings.write);
+      }
+      return newPolicy;
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Given a [[Policy]] and a set of [[AccessModes]], return a new Policy based on the given
+   * Policy, but with the given Access Modes allowed on it.
+   *
+   * @param policy The Policy on which to set the modes to allow.
+   * @param modes Modes to allow for this Policy.
+   * @since 1.6.0
+   * @deprecated The Access Control Policies proposal will be updated to use a different vocabulary for allow- and deny-modes. To be compatible with servers that implement that, use [[setAllowModesV2]].
+   */
+  function setAllowModesV1(policy, modes) {
       let newPolicy = removeAll(policy, acp.allow);
       if (modes.read === true) {
           newPolicy = addIri(newPolicy, acp.allow, acp.Read);
@@ -8482,9 +9570,28 @@ var SolidClient = (function (exports) {
    * Given a [[Policy]], return which [[AccessModes]] it allows.
    *
    * @param policy The Policy for which you want to know the Access Modes it allows.
-   * @since 1.6.0
+   * @since Not released yet.
    */
-  function getAllowModes(policy) {
+  function getAllowModesV2(policy) {
+      const allowedModes = getIriAll(policy, acp.allow);
+      return {
+          read: allowedModes.includes(internal_accessModeIriStrings.read),
+          append: allowedModes.includes(internal_accessModeIriStrings.append),
+          write: allowedModes.includes(internal_accessModeIriStrings.write),
+      };
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Given a [[Policy]], return which [[AccessModes]] it allows.
+   *
+   * @param policy The Policy for which you want to know the Access Modes it allows.
+   * @since 1.6.0
+   * @deprecated The Access Control Policies proposal will be updated to use a different vocabulary for allow- and deny-modes. To be compatible with servers that implement that, use [[getAllowModesV2]].
+   */
+  function getAllowModesV1(policy) {
       const allowedModes = getIriAll(policy, acp.allow);
       return {
           read: allowedModes.includes(acp.Read),
@@ -8502,9 +9609,35 @@ var SolidClient = (function (exports) {
    *
    * @param policy The Policy on which to set the modes to disallow.
    * @param modes Modes to disallow for this Policy.
-   * @since 1.6.0
+   * @since Not released yet.
    */
-  function setDenyModes(policy, modes) {
+  function setDenyModesV2(policy, modes) {
+      let newPolicy = removeAll(policy, acp.deny);
+      if (modes.read === true) {
+          newPolicy = addIri(newPolicy, acp.deny, internal_accessModeIriStrings.read);
+      }
+      if (modes.append === true) {
+          newPolicy = addIri(newPolicy, acp.deny, internal_accessModeIriStrings.append);
+      }
+      if (modes.write === true) {
+          newPolicy = addIri(newPolicy, acp.deny, internal_accessModeIriStrings.write);
+      }
+      return newPolicy;
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Given a [[Policy]] and a set of [[AccessModes]], return a new Policy based on the given
+   * Policy, but with the given Access Modes disallowed on it.
+   *
+   * @param policy The Policy on which to set the modes to disallow.
+   * @param modes Modes to disallow for this Policy.
+   * @since 1.6.0
+   * @deprecated The Access Control Policies proposal will be updated to use a different vocabulary for allow- and deny-modes. To be compatible with servers that implement that, use [[setDenyModesV2]].
+   */
+  function setDenyModesV1(policy, modes) {
       let newPolicy = removeAll(policy, acp.deny);
       if (modes.read === true) {
           newPolicy = addIri(newPolicy, acp.deny, acp.Read);
@@ -8525,9 +9658,28 @@ var SolidClient = (function (exports) {
    * Given a [[Policy]], return which [[AccessModes]] it disallows.
    *
    * @param policy The Policy on which you want to know the Access Modes it disallows.
-   * @since 1.6.0
+   * @since Not released yet.
    */
-  function getDenyModes(policy) {
+  function getDenyModesV2(policy) {
+      const deniedModes = getIriAll(policy, acp.deny);
+      return {
+          read: deniedModes.includes(internal_accessModeIriStrings.read),
+          append: deniedModes.includes(internal_accessModeIriStrings.append),
+          write: deniedModes.includes(internal_accessModeIriStrings.write),
+      };
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Given a [[Policy]], return which [[AccessModes]] it disallows.
+   *
+   * @param policy The Policy on which you want to know the Access Modes it disallows.
+   * @since 1.6.0
+   * @deprecated The Access Control Policies proposal will be updated to use a different vocabulary for allow- and deny-modes. To be compatible with servers that implement that, use [[getDenyModesV2]].
+   */
+  function getDenyModesV1(policy) {
       const deniedModes = getIriAll(policy, acp.deny);
       return {
           read: deniedModes.includes(acp.Read),
@@ -8800,8 +9952,8 @@ var SolidClient = (function (exports) {
           }
           return "unspecified";
       }
-      const allowModes = getAllowModes(policy);
-      const denyModes = getDenyModes(policy);
+      const allowModes = getAllowModesV1(policy);
+      const denyModes = getDenyModesV1(policy);
       let markdown = `## Policy: ${asUrl(policy)}\n\n`;
       markdown += `- Read: ${getStatus(allowModes.read, denyModes.read)}\n`;
       markdown += `- Append: ${getStatus(allowModes.append, denyModes.append)}\n`;
@@ -8830,7 +9982,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -8865,7 +10017,7 @@ var SolidClient = (function (exports) {
    */
   function mockAcrFor(resourceUrl) {
       const acrUrl = new URL("access-control-resource", resourceUrl).href;
-      const acr = Object.assign(mockSolidDatasetFrom(acrUrl), { accessTo: resourceUrl });
+      const acr = Object.assign(Object.assign({}, mockSolidDatasetFrom(acrUrl)), { accessTo: resourceUrl });
       return acr;
   }
   /**
@@ -8893,7 +10045,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -8945,41 +10097,41 @@ var SolidClient = (function (exports) {
   };
   const v2PolicyFunctions = {
       createPolicy,
-      getAllowModes,
-      getDenyModes,
+      getAllowModes: getAllowModesV1,
+      getDenyModes: getDenyModesV1,
       getPolicy,
       getPolicyAll,
       policyAsMarkdown,
       removePolicy,
-      setAllowModes,
-      setDenyModes,
+      setAllowModes: setAllowModesV1,
+      setDenyModes: setDenyModesV1,
       setPolicy,
   };
   const v2RuleFunctions = {
-      addAgent,
+      addAgent: addAgent$1,
       addForbiddenRuleUrl: addNoneOfRuleUrl,
       addGroup,
       addOptionalRuleUrl: addAnyOfRuleUrl,
       addRequiredRuleUrl: addAllOfRuleUrl,
       createRule,
-      getAgentAll,
+      getAgentAll: getAgentAll$1,
       getForbiddenRuleUrlAll: getNoneOfRuleUrlAll,
       getGroupAll,
       getOptionalRuleUrlAll: getAnyOfRuleUrlAll,
       getRequiredRuleUrlAll: getAllOfRuleUrlAll,
       getRule,
       getRuleAll,
-      hasAuthenticated,
-      hasCreator,
-      hasPublic,
-      removeAgent,
+      hasAuthenticated: hasAuthenticated$1,
+      hasCreator: hasCreator$1,
+      hasPublic: hasPublic$1,
+      removeAgent: removeAgent$1,
       removeForbiddenRuleUrl: removeNoneOfRuleUrl,
       removeGroup,
       removeOptionalRuleUrl: removeAnyOfRuleUrl,
       removeRequiredRuleUrl: removeAllOfRuleUrl,
       removeRule,
       ruleAsMarkdown,
-      setAgent,
+      setAgent: setAgent$1,
       setForbiddenRuleUrl: setNoneOfRuleUrl,
       setGroup,
       setOptionalRuleUrl: setAnyOfRuleUrl,
@@ -8993,17 +10145,17 @@ var SolidClient = (function (exports) {
   /* istanbul ignore next Not a supported public API: */
   /** @deprecated Replaced by [[setPublic]] */
   function previousSetPublicSignature(rule, enable) {
-      return enable ? setPublic(rule) : removePublic(rule);
+      return enable ? setPublic$1(rule) : removePublic$1(rule);
   }
   /* istanbul ignore next Not a supported public API: */
   /** @deprecated Replaced by [[setAuthenticated]] */
   function previousSetAuthenticatedSignature(rule, enable) {
-      return enable ? setAuthenticated(rule) : removeAuthenticated(rule);
+      return enable ? setAuthenticated$1(rule) : removeAuthenticated$1(rule);
   }
   /* istanbul ignore next Not a supported public API: */
   /** @deprecated Replaced by [[setCreator]] */
   function previousSetCreatorSignature(rule, enable) {
-      return enable ? setCreator(rule) : removeCreator(rule);
+      return enable ? setCreator$1(rule) : removeCreator$1(rule);
   }
   const deprecatedFunctions$1 = {
       /** @deprecated This misspelling was included accidentally. The correct function is [[getForbiddenRuleUrlAll]]. */
@@ -9019,7 +10171,7 @@ var SolidClient = (function (exports) {
   const acp_v2 = Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, v2AcpFunctions), v2ControlFunctions), v2PolicyFunctions), v2RuleFunctions), v2MockFunctions), deprecatedFunctions$1);
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -9051,41 +10203,41 @@ var SolidClient = (function (exports) {
   };
   const v1PolicyFunctions = {
       createPolicy,
-      getAllowModes,
-      getDenyModes,
+      getAllowModes: getAllowModesV1,
+      getDenyModes: getDenyModesV1,
       getPolicy,
       getPolicyAll,
       policyAsMarkdown,
       removePolicy,
-      setAllowModes,
-      setDenyModes,
+      setAllowModes: setAllowModesV1,
+      setDenyModes: setDenyModesV1,
       setPolicy,
   };
   const v1RuleFunctions = {
-      addAgent,
+      addAgent: addAgent$1,
       addForbiddenRuleUrl: addNoneOfRuleUrl,
       addGroup,
       addOptionalRuleUrl: addAnyOfRuleUrl,
       addRequiredRuleUrl: addAllOfRuleUrl,
       createRule,
-      getAgentAll,
+      getAgentAll: getAgentAll$1,
       getForbiddenRuleUrlAll: getNoneOfRuleUrlAll,
       getGroupAll,
       getOptionalRuleUrlAll: getAnyOfRuleUrlAll,
       getRequiredRuleUrlAll: getAllOfRuleUrlAll,
       getRule,
       getRuleAll,
-      hasAuthenticated,
-      hasCreator,
-      hasPublic,
-      removeAgent,
+      hasAuthenticated: hasAuthenticated$1,
+      hasCreator: hasCreator$1,
+      hasPublic: hasPublic$1,
+      removeAgent: removeAgent$1,
       removeForbiddenRuleUrl: removeNoneOfRuleUrl,
       removeGroup,
       removeOptionalRuleUrl: removeAnyOfRuleUrl,
       removeRequiredRuleUrl: removeAllOfRuleUrl,
       removeRule,
       ruleAsMarkdown,
-      setAgent,
+      setAgent: setAgent$1,
       setForbiddenRuleUrl: setNoneOfRuleUrl,
       setGroup,
       setOptionalRuleUrl: setAnyOfRuleUrl,
@@ -9154,7 +10306,7 @@ var SolidClient = (function (exports) {
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -9206,14 +10358,14 @@ var SolidClient = (function (exports) {
   };
   const v3PolicyFunctions = {
       createPolicy,
-      getAllowModes,
-      getDenyModes,
+      getAllowModes: getAllowModesV1,
+      getDenyModes: getDenyModesV1,
       getPolicy,
       getPolicyAll,
       policyAsMarkdown,
       removePolicy,
-      setAllowModes,
-      setDenyModes,
+      setAllowModes: setAllowModesV1,
+      setDenyModes: setDenyModesV1,
       setPolicy,
       createResourcePolicyFor,
       getResourceAcrPolicy,
@@ -9226,36 +10378,36 @@ var SolidClient = (function (exports) {
       setResourcePolicy,
   };
   const v3RuleFunctions = {
-      addAgent,
+      addAgent: addAgent$1,
       addGroup,
       createRule,
-      getAgentAll,
+      getAgentAll: getAgentAll$1,
       getGroupAll,
       getRule,
       getRuleAll,
-      removeAgent,
+      removeAgent: removeAgent$1,
       removeGroup,
       removeRule,
       ruleAsMarkdown,
-      setAgent,
+      setAgent: setAgent$1,
       setGroup,
       setRule,
-      addClient,
-      getClientAll,
-      hasAnyClient,
-      removeClient,
-      setAnyClient,
-      setClient,
-      removeAnyClient,
-      hasAuthenticated,
-      hasCreator,
-      hasPublic,
-      setAuthenticated,
-      setCreator,
-      setPublic,
-      removeAuthenticated,
-      removeCreator,
-      removePublic,
+      addClient: addClient$1,
+      getClientAll: getClientAll$1,
+      hasAnyClient: hasAnyClient$1,
+      removeClient: removeClient$1,
+      setAnyClient: setAnyClient$1,
+      setClient: setClient$1,
+      removeAnyClient: removeAnyClient$1,
+      hasAuthenticated: hasAuthenticated$1,
+      hasCreator: hasCreator$1,
+      hasPublic: hasPublic$1,
+      setAuthenticated: setAuthenticated$1,
+      setCreator: setCreator$1,
+      setPublic: setPublic$1,
+      removeAuthenticated: removeAuthenticated$1,
+      removeCreator: removeCreator$1,
+      removePublic: removePublic$1,
       getAnyOfRuleUrlAll,
       addAnyOfRuleUrl,
       removeAnyOfRuleUrl,
@@ -9285,7 +10437,7 @@ var SolidClient = (function (exports) {
   const acp_v3 = Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, v3AcpFunctions), v3ControlFunctions), v3PolicyFunctions), v3RuleFunctions), v3MockFunctions);
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -9304,39 +10456,937 @@ var SolidClient = (function (exports) {
    * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
    * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    */
-  function getActiveRuleAll(resource, policyUrlAll) {
-      // Collect all the rules referenced by the active policies.
-      const ruleUrls = [];
-      policyUrlAll.forEach((policyUrl) => {
-          const acr = internal_getAcr(resource);
-          const policyThing = getThing(acr, policyUrl);
-          if (policyThing !== null) {
-              getIriAll(policyThing, acp.anyOf).forEach((activeRuleUrl) => ruleUrls.push(activeRuleUrl));
-              getIriAll(policyThing, acp.allOf).forEach((activeRuleUrl) => ruleUrls.push(activeRuleUrl));
-              getIriAll(policyThing, acp.noneOf).forEach((activeRuleUrl) => ruleUrls.push(activeRuleUrl));
+  /**
+   * @param thing the [[Thing]] to check to see if it's an ACP Matcher or not
+   */
+  function isMatcher(thing) {
+      return getIriAll(thing, rdf$2.type).includes(acp.Matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Add a Matcher that refines the scope of a given the [[Policy]]. If an agent
+   * requesting access to a resource is **not** present in **any** of the "All Of" Matchers,
+   * they will not be granted access.
+   *
+   * Also see [[addAnyOfMatcherUrl]] and [[addNoneOfMatcherUrl]].
+   *
+   * @param policy The [[Policy]] to which the Matcher should be added.
+   * @param matcher The Matcher to add to the policy.
+   * @returns A new [[Policy]] clone of the original one, with the new Matcher added.
+   * @since Not released yet.
+   */
+  function addAllOfMatcherUrl(policy, matcher) {
+      return addIri(policy, acp.allOf, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Removes a Matcher that refines the scope of a given the [[Policy]]. If an agent
+   * requesting access to a resource is **not** present in **any** of the "All Of" Matchers,
+   * they will not be granted access.
+   * @param policy The [[Policy]] from which the Matcher should be removed.
+   * @param matcher The Matcher to remove from the policy.
+   * @returns A new [[Policy]] clone of the original one, with the Matcher removed.
+   * @since Not released yet.
+   */
+  function removeAllOfMatcherUrl(policy, matcher) {
+      return removeIri(policy, acp.allOf, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Overwrites the Matcher refining the scope of a given the [[Policy]]. If an agent
+   * requesting access to a resource is **not** present in **any** of the "All Of" Matchers,
+   * they will not be granted access.
+   * @param policy The [[Policy]] to which the Matcher should be added.
+   * @param matcher The Matcher to set for the Policy.
+   * @returns A new [[Policy]] clone of the original one, with the "All Of" Matchers replaced.
+   * @since Not released yet.
+   */
+  function setAllOfMatcherUrl(policy, matcher) {
+      return setIri(policy, acp.allOf, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Get the "All Of" [[Matcher]]s for the given [[Policy]]
+   * @param policy The [[policy]] from which the Matchers should be read.
+   * @returns A list of the "All Of" [[Matcher]]s
+   * @since Not released yet.
+   */
+  function getAllOfMatcherUrlAll(policy) {
+      return getIriAll(policy, acp.allOf);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Add a Matcher that extends the scope of a given the [[Policy]]. If an agent
+   * requesting access to a resource is present in **any** of the "Any Of" Matchers,
+   * they will be granted access.
+   *
+   * Also see [[addAllOfMatcherUrl]] and [[addNoneOfMatcherUrl]].
+   *
+   * @param policy The [[Policy]] to which the Matcher should be added.
+   * @param matcher The Matcher to add to the policy.
+   * @returns A new [[Policy]] clone of the original one, with the new Matcher added.
+   * @since Not released yet.
+   */
+  function addAnyOfMatcherUrl(policy, matcher) {
+      return addIri(policy, acp.anyOf, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Removes a Matcher that extends the scope of a given the [[Policy]]. If an agent
+   * requesting access to a resource is present in **any** of the "Any Of" Matchers,
+   * they will be granted access.
+   * @param policy The [[Policy]] from which the Matcher should be removed.
+   * @param matcher The Matcher to remove from the policy.
+   * @returns A new [[Policy]] clone of the original one, with the Matcher removed.
+   * @since Not released yet.
+   */
+  function removeAnyOfMatcherUrl(policy, matcher) {
+      return removeIri(policy, acp.anyOf, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Overwrite the Matcher extending the scope of a given the [[Policy]]. If an agent
+   * requesting access to a resource is present in **any** of the "Any Of" Matchers,
+   * they will be granted access.
+   * @param policy The [[Policy]] to which the Matcher should be added.
+   * @param matcher The Matcher to set for the Policy.
+   * @returns A new [[Policy]] clone of the original one, with the "Any Of" Matchers replaced.
+   * @since Not released yet.
+   */
+  function setAnyOfMatcherUrl(policy, matcher) {
+      return setIri(policy, acp.anyOf, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Get the "Any Of" [[Matcher]]s for the given [[Policy]]
+   * @param policy The [[policy]] from which the Matchers should be read.
+   * @returns A list of the "Any Of" [[Matcher]]s
+   * @since Not released yet.
+   */
+  function getAnyOfMatcherUrlAll(policy) {
+      return getIriAll(policy, acp.anyOf);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Add a Matcher that restricts the scope of a given the [[Policy]]. If an agent
+   * requesting access to a resource is matched by another Matcher, but **also**
+   * by the given Matcher, they will **not** be granted access.
+   *
+   * Also see [[addAllOfMatcherUrl]] and [[addAnyOfMatcherUrl]].
+   *
+   * @param policy The [[Policy]] to which the Matcher should be added.
+   * @param matcher The Matcher to add to the policy.
+   * @returns A new [[Policy]] clone of the original one, with the new Matcher added.
+   * @since Not released yet.
+   */
+  function addNoneOfMatcherUrl(policy, matcher) {
+      return addIri(policy, acp.noneOf, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Removes a Matcher that restricts the scope of a given the [[Policy]]. If an agent
+   * requesting access to a resource is matched by another Matcher, but **also**
+   * in any of the "None Of" Matchers, they will **not** be granted access.
+   *
+   * @param policy The [[Policy]] from which the Matcher should be removed.
+   * @param matcher The Matcher to remove from the policy.
+   * @returns A new [[Policy]] clone of the original one, with the Matcher removed.
+   * @since Not released yet.
+   */
+  function removeNoneOfMatcherUrl(policy, matcher) {
+      return removeIri(policy, acp.noneOf, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Set the Matchers restricting the scope of a given [[Policy]]. If an agent
+   * requesting access to a resource is matched by another Matcher, but **also**
+   * by any of the "None Of" Matchers, they will not be granted access.
+   *
+   * @param policy The [[Policy]] to which the Matcher should be added.
+   * @param matcher The Matcher to set for the Policy.
+   * @returns A new [[Policy]] clone of the original one, with the "None Of" Matchers replaced.
+   * @since Not released yet.
+   */
+  function setNoneOfMatcherUrl(policy, matcher) {
+      return setIri(policy, acp.noneOf, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Get the "None Of" [[Matcher]]s for the given [[Policy]]
+   * @param policy The [[policy]] from which the Matchers should be read.
+   * @returns A list of the forbidden [[Matcher]]s
+   * @since Not released yet.
+   */
+  function getNoneOfMatcherUrlAll(policy) {
+      return getIriAll(policy, acp.noneOf);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Initialise a new, empty [[Matcher]].
+   *
+   * @param url URL that identifies this [[Matcher]].
+   * @since Not released yet.
+   */
+  function createMatcher(url) {
+      const stringUrl = internal_toIriString(url);
+      let matcherThing = createThing({ url: stringUrl });
+      matcherThing = setUrl(matcherThing, rdf$2.type, acp.Matcher);
+      return matcherThing;
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Initialise a new, empty [[ResourceMatcher]] for the given Resource.
+   *
+   * @param resourceWithAcr The Resource to which the new Matcher is to apply.
+   * @param name Name that identifies this [[Matcher]].
+   * @since Not released yet.
+   */
+  function createResourceMatcherFor(resourceWithAcr, name) {
+      const acr = internal_getAcr(resourceWithAcr);
+      const url = new URL(getSourceUrl(acr));
+      url.hash = `#${name}`;
+      let matcherThing = createThing({ url: url.href });
+      matcherThing = setUrl(matcherThing, rdf$2.type, acp.Matcher);
+      return matcherThing;
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Get the [[Matcher]] with the given URL from an [[SolidDataset]].
+   *
+   * @param matcherResource The Resource that contains the given [[Matcher]].
+   * @param url URL that identifies this [[Matcher]].
+   * @returns The requested [[Matcher]], if it exists, or `null` if it does not.
+   * @since Not released yet.
+   */
+  function getMatcher(matcherResource, url) {
+      const foundThing = getThing(matcherResource, url);
+      if (foundThing === null || !isMatcher(foundThing)) {
+          return null;
+      }
+      return foundThing;
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Get the [[ResourceMatcher]] with the given name from an Resource's Access Control
+   * Resource.
+   *
+   * @param resourceWithAcr The Resource whose Access Control Resource contains the given [[ResourceMatcher]].
+   * @param name Name that identifies this [[ResourceMatcher]].
+   * @returns The requested [[ResourceMatcher]], if it exists, or `null` if it does not.
+   * @since Not released yet.
+   */
+  function getResourceMatcher(resourceWithAcr, name) {
+      const acr = internal_getAcr(resourceWithAcr);
+      const acrUrl = getSourceUrl(acr);
+      const url = new URL(acrUrl);
+      url.hash = `#${name}`;
+      const foundThing = getThing(acr, url.href);
+      if (foundThing === null || !isMatcher(foundThing)) {
+          return null;
+      }
+      return foundThing;
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Gets the [[Matcher]]s from a [[SolidDataset]].
+   *
+   * @param matcherResource The Resource that contains (zero or more) [[Matcher]]s.
+   * @returns The [[Matcher]]s contained in this resource.
+   * @since Not released yet.
+   */
+  function getMatcherAll(matcherResource) {
+      const things = getThingAll(matcherResource);
+      return things.filter(isMatcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Gets the [[ResourceMatcher]]s from a Resource's Access Control Resource.
+   *
+   * @param resourceWithAcr The Resource whose Access Control Resource contains (zero or more) [[ResourceMatcher]]s.
+   * @returns The [[ResourceMatcher]]s contained in this Resource's Access Control Resource.
+   * @since Not released yet.
+   */
+  function getResourceMatcherAll(resourceWithAcr) {
+      const acr = internal_getAcr(resourceWithAcr);
+      const things = getThingAll(acr);
+      return things.filter(isMatcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Removes the given [[Matcher]] from the given [[SolidDataset]].
+   *
+   * @param matcherResource The Resource that contains (zero or more) [[Matcher]]s.
+   * @returns A new SolidDataset equal to the given Matcher Resource, but without the given Matcher.
+   * @since Not released yet.
+   */
+  function removeMatcher(matcherResource, matcher) {
+      return removeThing(matcherResource, matcher);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Removes the given [[ResourceMatcher]] from the given Resource's Access Control Resource.
+   *
+   * @param resourceWithAcr The Resource whose Access Control Resource contains (zero or more) [[ResourceMatcher]]s.
+   * @returns A new Resource equal to the given Resource, but without the given Matcher in its ACR.
+   * @since Not released yet.
+   */
+  function removeResourceMatcher(resourceWithAcr, matcher) {
+      const acr = internal_getAcr(resourceWithAcr);
+      let matcherToRemove;
+      if (typeof matcher === "string") {
+          try {
+              new URL(matcher);
+              matcherToRemove = matcher;
           }
-      });
-      return ruleUrls;
+          catch (e) {
+              // If the given Matcher to remove is the name of the Matcher,
+              // resolve it to its full URL — developers usually refer to either the
+              // Matcher itself, or by its name, as they do not have access to the ACR
+              // directly.
+              const matcherUrl = new URL(getSourceUrl(acr));
+              matcherUrl.hash = `#${matcher}`;
+              matcherToRemove = matcherUrl.href;
+          }
+      }
+      else if (isNamedNode$1(matcher)) {
+          matcherToRemove = internal_toIriString(matcher);
+      }
+      else {
+          matcherToRemove = asUrl(matcher);
+      }
+      // Check whether the actual Matcher (i.e. with the Matcher type) exists:
+      const matchingMatcher = getResourceMatcher(resourceWithAcr, new URL(matcherToRemove).hash.substring(1));
+      if (matchingMatcher === null) {
+          // No such Matcher exists yet, so return the Resource+ACR unchanged:
+          return resourceWithAcr;
+      }
+      const updatedAcr = removeThing(acr, matchingMatcher);
+      const updatedResource = internal_setAcr(resourceWithAcr, updatedAcr);
+      return updatedResource;
   }
-  function internal_hasInaccessiblePolicies(resource) {
-      const sourceIri = getSourceIri(resource);
-      // Collect all policies that apply to the resource or its ACR (aka active)
-      const activePolicyUrls = getPolicyUrlAll(resource).concat(getAcrPolicyUrlAll(resource));
-      const ruleUrls = getActiveRuleAll(resource, activePolicyUrls);
-      // If either an active policy or rule are not defined in the ACR, return false
-      return (activePolicyUrls
-          .concat(ruleUrls)
-          // The call to `isDefaultEssPolicyUrl` is a workaround for an ESS bug.
-          // When that workaround can be removed, remove the `&&` leg that calls it.
-          .some((url) => url.substring(0, sourceIri.length) !== sourceIri &&
-          !isDefaultEssPolicyUrl(url, sourceIri)));
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Insert the given [[Matcher]] into the given [[SolidDataset]], replacing previous
+   * instances of that Matcher.
+   *
+   * @param matcherResource The Resource that contains (zero or more) [[Matcher]]s.
+   * @returns A new SolidDataset equal to the given Matcher Resource, but with the given Matcher.
+   * @since Not released yet.
+   */
+  function setMatcher(matcherResource, matcher) {
+      return setThing(matcherResource, matcher);
   }
-  const knownActorRelations = [acp.agent, acp.group];
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Insert the given [[ResourceMatcher]] into the given Resource's Access Control Resource,
+   * replacing previous instances of that Matcher.
+   *
+   * @param resourceWithAcr The Resource whose Access Control Resource contains (zero or more) [[ResourceMatcher]]s.
+   * @returns A new Resource equal to the given Resource, but with the given Matcher in its ACR.
+   * @since Not released yet.
+   */
+  function setResourceMatcher(resourceWithAcr, matcher) {
+      const acr = internal_getAcr(resourceWithAcr);
+      const updatedAcr = setThing(acr, matcher);
+      const updatedResource = internal_setAcr(resourceWithAcr, updatedAcr);
+      return updatedResource;
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * List all the agents a [[Matcher]] applies **directly** to. This will not include agents
+   * that are matched on a property other than their WebID.
+   *
+   * @param matcher The matcher from which agents are read.
+   * @returns A list of the WebIDs of agents included in the matcher.
+   * @since Not released yet.
+   */
+  function getAgentAll(matcher) {
+      return getIriAll(matcher, acp.agent).filter((agent) => agent !== acp.PublicAgent &&
+          agent !== acp.AuthenticatedAgent &&
+          agent !== acp.CreatorAgent);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Overwrite the agents the [[Matcher]] applies to with the provided agents.
+   *
+   * @param matcher The matcher for which agents are set.
+   * @param agent The agent the matcher should apply to.
+   * @returns A copy of the input matcher, applying to a different set of agents.
+   * @since Not released yet.
+   */
+  function setAgent(matcher, agent) {
+      // Preserve the special agent classes authenticated and public, which we
+      // don't want to overwrite with this function.
+      const isPublic = hasPublic(matcher);
+      const isAuthenticated = hasAuthenticated(matcher);
+      const isCreator = hasCreator(matcher);
+      let result = setIri(matcher, acp.agent, agent);
+      // Restore public and authenticated
+      if (isPublic) {
+          result = setPublic(result);
+      }
+      if (isAuthenticated) {
+          result = setAuthenticated(result);
+      }
+      if (isCreator) {
+          result = setCreator(result);
+      }
+      return result;
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Apply the [[Matcher]] to an additional agent.
+   *
+   * @param matcher The [[Matcher]] to be applied to an additional agent.
+   * @param agent The agent the [[Matcher]] should apply to.
+   * @returns A copy of the [[Matcher]], applying to an additional agent.
+   * @since Not released yet.
+   */
+  function addAgent(matcher, agent) {
+      return addIri(matcher, acp.agent, agent);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Prevent the [[Matcher]] from applying to a given agent directly. This will not
+   * prevent the agent from matching on other properties than its WebID.
+   *
+   * @param matcher The [[Matcher]] that should no longer apply to a given agent.
+   * @param agent The agent the Matcher should no longer apply to.
+   * @returns A copy of the Matcher, not applying to the given agent.
+   * @since Not released yet.
+   */
+  function removeAgent(matcher, agent) {
+      return removeIri(matcher, acp.agent, agent);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Check if the Matcher applies to any agent.
+   *
+   * @param matcher The Matcher checked for public access.
+   * @returns Whether the Matcher applies to any agent or not.
+   * @since Not released yet.
+   */
+  function hasPublic(matcher) {
+      return (getIriAll(matcher, acp.agent).filter((agent) => agent === acp.PublicAgent)
+          .length > 0);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Set a Matcher to apply to any Agent.
+   *
+   * @param matcher The Matcher being modified.
+   * @returns A copy of the Matcher, updated to apply to any agent.
+   * @since Not released yet.
+   */
+  function setPublic(matcher) {
+      // The second argument should not be part of the function signature,
+      // so it's not in the parameter list:
+      // eslint-disable-next-line prefer-rest-params
+      if (typeof arguments === "object" && typeof arguments[1] === "boolean") {
+          throw new Error("The function `setPublic` no longer takes a second parameter. It is now used together with `removePublic` instead.");
+      }
+      return addIri(matcher, acp.agent, acp.PublicAgent);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Set a Matcher to no longer apply to any Agent.
+   *
+   * @param matcher The Matcher being modified.
+   * @returns A copy of the Matcher, updated to no longer apply to any agent.
+   * @since Not released yet.
+   */
+  function removePublic(matcher) {
+      return removeIri(matcher, acp.agent, acp.PublicAgent);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Check if the Matcher applies to any authenticated agent.
+   *
+   * @param matcher The Matcher checked for authenticated access.
+   * @returns Whether the Matcher applies to any authenticated agent or not.
+   * @since Not released yet.
+   */
+  function hasAuthenticated(matcher) {
+      return (getIriAll(matcher, acp.agent).filter((agent) => agent === acp.AuthenticatedAgent).length > 0);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Set a Matcher to apply to any authenticated Agent.
+   *
+   * @param matcher The Matcher being modified.
+   * @returns A copy of the Matcher, updated to apply to any authenticated Agent.
+   * @since Not released yet.
+   */
+  function setAuthenticated(matcher) {
+      // The second argument should not be part of the function signature,
+      // so it's not in the parameter list:
+      // eslint-disable-next-line prefer-rest-params
+      if (typeof arguments === "object" && typeof arguments[1] === "boolean") {
+          throw new Error("The function `setAuthenticated` no longer takes a second parameter. It is now used together with `removeAuthenticated` instead.");
+      }
+      return addIri(matcher, acp.agent, acp.AuthenticatedAgent);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Set a Matcher to no longer apply to any authenticated Agent.
+   *
+   * @param matcher The Matcher being modified.
+   * @returns A copy of the Matcher, updated to apply/not apply to any authenticated agent.
+   * @since Not released yet.
+   */
+  function removeAuthenticated(matcher) {
+      return removeIri(matcher, acp.agent, acp.AuthenticatedAgent);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Check if the Matcher applies to the creator of the Resource.
+   *
+   * @param matcher The Matcher checked for authenticated access.
+   * @returns Whether the Matcher applies to the creator of the Resource or not.
+   * @since Not released yet.
+   */
+  function hasCreator(matcher) {
+      return (getIriAll(matcher, acp.agent).filter((agent) => agent === acp.CreatorAgent)
+          .length > 0);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Set a Matcher to apply to the creator of a Resource.
+   *
+   * @param matcher The Matcher being modified.
+   * @returns A copy of the Matcher, updated to apply to the creator of a Resource.
+   * @since Not released yet.
+   */
+  function setCreator(matcher) {
+      // The second argument should not be part of the function signature,
+      // so it's not in the parameter list:
+      // eslint-disable-next-line prefer-rest-params
+      if (typeof arguments === "object" && typeof arguments[1] === "boolean") {
+          throw new Error("The function `setCreator` no longer takes a second parameter. It is now used together with `removeCreator` instead.");
+      }
+      return addIri(matcher, acp.agent, acp.CreatorAgent);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Set a Matcher to no longer apply to the creator of a Resource.
+   *
+   * @param matcher The Matcher being modified.
+   * @returns A copy of the Matcher, updated to apply/not apply to the creator of a Resource.
+   * @since Not released yet.
+   */
+  function removeCreator(matcher) {
+      return removeIri(matcher, acp.agent, acp.CreatorAgent);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * List all the clients a [[Matcher]] applies **directly** to. This will not include
+   * specific client classes, such as public clients.
+   *
+   * @param matcher The Matcher from which clients are read.
+   * @returns A list of the WebIDs of clients included in the Matcher.
+   * @since Not released yet.
+   */
+  function getClientAll(matcher) {
+      return getIriAll(matcher, acp.client).filter((client) => client !== solid.PublicOidcClient);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Overwrite the clients the [[Matcher]] applies to with the provided Client.
+   *
+   * @param matcher The Matcher for which clients are set.
+   * @param client The Client the Matcher should apply to.
+   * @returns A copy of the input Matcher, applying to a different set of Clients.
+   * @since Not released yet.
+   */
+  function setClient(matcher, client) {
+      // Preserve the special "any client" class, which we
+      // don't want to overwrite with this function.
+      const anyClientEnabled = hasAnyClient(matcher);
+      let result = setIri(matcher, acp.client, client);
+      // Restore the "any client" class
+      if (anyClientEnabled) {
+          result = setAnyClient(result);
+      }
+      return result;
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Apply the [[Matcher]] to an additional Client.
+   *
+   * @param matcher The [[Matcher]] to be applied to an additional Client.
+   * @param client The Client the [[Matcher]] should apply to.
+   * @returns A copy of the [[Matcher]], applying to an additional Client.
+   * @since Not released yet.
+   */
+  function addClient(matcher, client) {
+      return addIri(matcher, acp.client, client);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Prevent the [[Matcher]] from applying to a given Client directly.
+   *
+   * @param matcher The [[Matcher]] that should no longer apply to a given Client.
+   * @param client The Client the Matcher should no longer apply to.
+   * @returns A copy of the Matcher, not applying to the given Client.
+   * @since Not released yet.
+   */
+  function removeClient(matcher, client) {
+      return removeIri(matcher, acp.client, client);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Check if the Matcher applies to any client, i.e. all the applications
+   * regardless of their identifier.
+   *
+   * @param matcher The Matcher checked for authenticated access.
+   * @returns Whether the Matcher applies to public clients.
+   * @since Not released yet.
+   */
+  function hasAnyClient(matcher) {
+      return (getIriAll(matcher, acp.client).filter((client) => client === solid.PublicOidcClient).length > 0);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Make the [[Matcher]] apply to any client application.
+   *
+   * @param matcher The Matcher for which clients are set.
+   * @returns A copy of the Matcher, updated to apply to any client
+   * @since Not released yet.
+   */
+  function setAnyClient(matcher) {
+      return addIri(matcher, acp.client, solid.PublicOidcClient);
+  }
+  /**
+   * ```{note} There is no Access Control Policies specification yet. As such, this
+   * function is still experimental and subject to change, even in a non-major release.
+   * ```
+   *
+   * Make the [[Matcher]] no longer apply to any client application.
+   *
+   * @param matcher The Matcher for which clients are set.
+   * @returns A copy of the Matcher, updated to no longer apply to any client
+   * @since Not released yet.
+   */
+  function removeAnyClient(matcher) {
+      return removeIri(matcher, acp.client, solid.PublicOidcClient);
+  }
+  /**
+   * Gets a human-readable representation of the given [[Matcher]] to aid debugging.
+   *
+   * Note that changes to the exact format of the return value are not considered a breaking change;
+   * it is intended to aid in debugging, not as a serialisation method that can be reliably parsed.
+   *
+   * @param matcher The Matcher to get a human-readable representation of.
+   * @since Not released yet.
+   */
+  function matcherAsMarkdown(matcher) {
+      let markdown = `## Matcher: ${asUrl(matcher)}\n\n`;
+      let targetEnumeration = "";
+      if (hasPublic(matcher)) {
+          targetEnumeration += "- Everyone\n";
+      }
+      if (hasAuthenticated(matcher)) {
+          targetEnumeration += "- All authenticated agents\n";
+      }
+      if (hasCreator(matcher)) {
+          targetEnumeration += "- The creator of this resource\n";
+      }
+      if (hasAnyClient(matcher)) {
+          targetEnumeration += "- Users of any client application\n";
+      }
+      const targetAgents = getAgentAll(matcher);
+      if (targetAgents.length > 0) {
+          targetEnumeration += "- The following agents:\n  - ";
+          targetEnumeration += targetAgents.join("\n  - ") + "\n";
+      }
+      const targetClients = getClientAll(matcher);
+      if (targetClients.length > 0) {
+          targetEnumeration += "- Users of the following client applications:\n  - ";
+          targetEnumeration += targetClients.join("\n  - ") + "\n";
+      }
+      markdown +=
+          targetEnumeration.length > 0
+              ? "This Matcher matches:\n" + targetEnumeration
+              : "<empty>\n";
+      return markdown;
+  }
+
+  /**
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+  const v4AcpFunctions = {
+      getFileWithAccessDatasets,
+      getFileWithAcr,
+      getReferencedPolicyUrlAll,
+      getResourceInfoWithAccessDatasets,
+      getResourceInfoWithAcr,
+      getSolidDatasetWithAccessDatasets,
+      getSolidDatasetWithAcr,
+      hasAccessibleAcr,
+      saveAcrFor,
+  };
+  const v4ControlFunctions = {
+      acrAsMarkdown,
+      addAcrPolicyUrl,
+      addMemberAcrPolicyUrl,
+      addMemberPolicyUrl,
+      addPolicyUrl,
+      getAcrPolicyUrlAll,
+      getMemberAcrPolicyUrlAll,
+      getMemberPolicyUrlAll,
+      getPolicyUrlAll,
+      hasLinkedAcr,
+      removeAcrPolicyUrl,
+      removeAcrPolicyUrlAll,
+      removeMemberAcrPolicyUrl,
+      removeMemberAcrPolicyUrlAll,
+      removeMemberPolicyUrl,
+      removeMemberPolicyUrlAll,
+      removePolicyUrl,
+      removePolicyUrlAll,
+  };
+  const v4PolicyFunctions = {
+      createPolicy,
+      getAllowModes: getAllowModesV2,
+      getDenyModes: getDenyModesV2,
+      getPolicy,
+      getPolicyAll,
+      policyAsMarkdown,
+      removePolicy,
+      setAllowModes: setAllowModesV2,
+      setDenyModes: setDenyModesV2,
+      setPolicy,
+      createResourcePolicyFor,
+      getResourceAcrPolicy,
+      getResourceAcrPolicyAll,
+      getResourcePolicy,
+      getResourcePolicyAll,
+      removeResourceAcrPolicy,
+      removeResourcePolicy,
+      setResourceAcrPolicy,
+      setResourcePolicy,
+  };
+  const v4MatcherFunctions = {
+      addAgent,
+      createMatcher,
+      getAgentAll,
+      getMatcher,
+      getMatcherAll,
+      removeAgent,
+      removeMatcher,
+      matcherAsMarkdown,
+      setAgent,
+      setMatcher,
+      addClient,
+      getClientAll,
+      hasAnyClient,
+      removeClient,
+      setAnyClient,
+      setClient,
+      removeAnyClient,
+      hasAuthenticated,
+      hasCreator,
+      hasPublic,
+      setAuthenticated,
+      setCreator,
+      setPublic,
+      removeAuthenticated,
+      removeCreator,
+      removePublic,
+      getAnyOfMatcherUrlAll,
+      addAnyOfMatcherUrl,
+      removeAnyOfMatcherUrl,
+      setAnyOfMatcherUrl,
+      getAllOfMatcherUrlAll,
+      addAllOfMatcherUrl,
+      removeAllOfMatcherUrl,
+      setAllOfMatcherUrl,
+      getNoneOfMatcherUrlAll,
+      addNoneOfMatcherUrl,
+      removeNoneOfMatcherUrl,
+      setNoneOfMatcherUrl,
+      createResourceMatcherFor,
+      getResourceMatcher,
+      getResourceMatcherAll,
+      removeResourceMatcher,
+      setResourceMatcher,
+  };
+  const v4MockFunctions = {
+      addMockAcrTo,
+      mockAcrFor,
+  };
+  /**
+   * @hidden
+   * @deprecated Please import directly from the "acp/*" modules.
+   */
+  const acp_v4 = Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, v4AcpFunctions), v4ControlFunctions), v4PolicyFunctions), v4MatcherFunctions), v4MockFunctions);
+
+  /**
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+  const knownActorRelations$1 = [acp.agent];
   /**
    * Get an overview of what access is defined for a given actor in a Resource's Access Control Resource.
    *
    * This will only return a value if all relevant access is defined in just the Resource's Access
-   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * Control Resource; in other words, if an Access Policy or Access Matcher applies that is re-used for
    * other Resources, this function will not be able to determine the access relevant to this actor.
    *
    * Additionally, this only considers access given _explicitly_ to the given actor, i.e. without
@@ -9345,27 +11395,19 @@ var SolidClient = (function (exports) {
    * In other words, this function will generally understand and return the access as set by
    * [[internal_setActorAccess]], but not understand more convoluted Policies.
    *
-   * @param resource Resource that was fetched together with its linked Access Control Resource.
-   * @param actorRelation What type of actor (e.g. acp:agent or acp:group) you want to get the access for.
+   * @param acpData All Access Control Policies and Matchers that apply to a particular Resource.
+   * @param actorRelation What type of actor (e.g. acp:agent) you want to get the access for.
    * @param actor Which instance of the given actor type you want to get the access for.
    * @returns What Access modes are granted to the given actor explicitly, or null if it could not be determined.
    */
-  function internal_getActorAccess(resource, actorRelation, actor) {
-      if (!hasAccessibleAcr(resource) ||
-          internal_hasInaccessiblePolicies(resource)) {
+  function internal_getActorAccess$1(acpData, actorRelation, actor) {
+      if (acpData.inaccessibleUrls.length > 0) {
+          // If we can't see all access data,
+          // we can't reliably determine what access the given actor has:
           return null;
       }
-      const acr = internal_getAcr(resource);
-      const acrPolicyUrls = getAcrPolicyUrlAll(resource);
-      const acrPolicies = acrPolicyUrls
-          .map((policyUrl) => getPolicy(acr, policyUrl))
-          .filter((policy) => policy !== null);
-      const applicableAcrPolicies = acrPolicies.filter((policy) => policyAppliesTo(policy, actorRelation, actor, acr));
-      const policyUrls = getPolicyUrlAll(resource);
-      const policies = policyUrls
-          .map((policyUrl) => getPolicy(acr, policyUrl))
-          .filter((policy) => policy !== null);
-      const applicablePolicies = policies.filter((policy) => policyAppliesTo(policy, actorRelation, actor, acr));
+      const applicableAcrPolicies = acpData.acrPolicies.filter((policy) => policyAppliesTo$1(policy, actorRelation, actor, acpData));
+      const applicablePolicies = acpData.policies.filter((policy) => policyAppliesTo$1(policy, actorRelation, actor, acpData));
       const initialAccess = {
           read: false,
           append: false,
@@ -9377,7 +11419,7 @@ var SolidClient = (function (exports) {
       // determines whether the `controlRead` and `controlWrite` statuses are `true`.
       const allowedAcrAccess = applicableAcrPolicies.reduce((acc, policy) => {
           const allAllowedAccess = Object.assign({}, acc);
-          const allowModes = getAllowModes(policy);
+          const allowModes = getAllowModesV2(policy);
           if (allowModes.read) {
               allAllowedAccess.controlRead = true;
           }
@@ -9390,7 +11432,7 @@ var SolidClient = (function (exports) {
       // determines whether the respective status is `true`.
       const withAllowedAccess = applicablePolicies.reduce((acc, policy) => {
           const allAllowedAccess = Object.assign({}, acc);
-          const allowModes = getAllowModes(policy);
+          const allowModes = getAllowModesV2(policy);
           if (allowModes.read) {
               allAllowedAccess.read = true;
           }
@@ -9408,7 +11450,7 @@ var SolidClient = (function (exports) {
       // by inspecting denied reading and writing defined in the ACR policies.
       const withAcrDeniedAccess = applicableAcrPolicies.reduce((acc, policy) => {
           const allDeniedAccess = Object.assign({}, acc);
-          const denyModes = getDenyModes(policy);
+          const denyModes = getDenyModesV2(policy);
           if (denyModes.read === true) {
               allDeniedAccess.controlRead = false;
           }
@@ -9421,7 +11463,7 @@ var SolidClient = (function (exports) {
       // in the regular policies:
       const withDeniedAccess = applicablePolicies.reduce((acc, policy) => {
           const allDeniedAccess = Object.assign({}, acc);
-          const denyModes = getDenyModes(policy);
+          const denyModes = getDenyModesV2(policy);
           if (denyModes.read === true) {
               allDeniedAccess.read = false;
           }
@@ -9439,7 +11481,7 @@ var SolidClient = (function (exports) {
    * Get an overview of what access is defined for a given Agent in a Resource's Access Control Resource.
    *
    * This will only return a value if all relevant access is defined in just the Resource's Access
-   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * Control Resource; in other words, if an Access Policy or Access Matcher applies that is re-used for
    * other Resources, this function will not be able to determine the access relevant to this Agent.
    *
    * Additionally, this only considers access given _explicitly_ to the given Agent, i.e. without
@@ -9448,38 +11490,18 @@ var SolidClient = (function (exports) {
    * In other words, this function will generally understand and return the access as set by
    * [[internal_setAgentAccess]], but not understand more convoluted Policies.
    *
-   * @param resource Resource that was fetched together with its linked Access Control Resource.
+   * @param acpData All Access Control Policies and Matchers that apply to a particular Resource.
    * @param webId WebID of the Agent you want to get the access for.
    * @returns What Access modes are granted to the given Agent explicitly, or null if it could not be determined.
    */
-  function internal_getAgentAccess(resource, webId) {
-      return internal_getActorAccess(resource, acp.agent, webId);
-  }
-  /**
-   * Get an overview of what access is defined for a given Group in a Resource's Access Control Resource.
-   *
-   * This will only return a value if all relevant access is defined in just the Resource's Access
-   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
-   * other Resources, this function will not be able to determine the access relevant to this Group.
-   *
-   * Additionally, this only considers access given _explicitly_ to the given Group, i.e. without
-   * additional conditions.
-   *
-   * In other words, this function will generally understand and return the access as set by
-   * [[internal_setGroupAccess]], but not understand more convoluted Policies.
-   *
-   * @param resource Resource that was fetched together with its linked Access Control Resource.
-   * @param groupUrl URL of the Group you want to get the access for.
-   * @returns What Access modes are granted to the given Group explicitly, or null if it could not be determined.
-   */
-  function internal_getGroupAccess(resource, groupUrl) {
-      return internal_getActorAccess(resource, acp.group, groupUrl);
+  function internal_getAgentAccess$1(acpData, webId) {
+      return internal_getActorAccess$1(acpData, acp.agent, webId);
   }
   /**
    * Get an overview of what access is defined for everybody in a Resource's Access Control Resource.
    *
    * This will only return a value if all relevant access is defined in just the Resource's Access
-   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * Control Resource; in other words, if an Access Policy or Access Matcher applies that is re-used for
    * other Resources, this function will not be able to determine the access relevant to everybody.
    *
    * Additionally, this only considers access given _explicitly_ to everybody, i.e. without
@@ -9488,28 +11510,26 @@ var SolidClient = (function (exports) {
    * In other words, this function will generally understand and return the access as set by
    * [[internal_setPublicAccess]], but not understand more convoluted Policies.
    *
-   * @param resource Resource that was fetched together with its linked Access Control Resource.
+   * @param acpData All Access Control Policies and Matchers that apply to a particular Resource.
    * @returns What Access modes are granted to everyone explicitly, or null if it could not be determined.
    */
-  function internal_getPublicAccess(resource) {
-      return internal_getActorAccess(resource, acp.agent, acp.PublicAgent);
+  function internal_getPublicAccess$1(acpData) {
+      return internal_getActorAccess$1(acpData, acp.agent, acp.PublicAgent);
   }
-  function policyAppliesTo(policy, actorRelation, actor, acr) {
+  function policyAppliesTo$1(policy, actorRelation, actor, acpData) {
       const allowModes = getIriAll(policy, acp.allow);
       const denyModes = getIriAll(policy, acp.deny);
       if (allowModes.length + denyModes.length === 0) {
           // A Policy that does not specify access modes does not do anything:
           return false;
       }
-      const allOfRules = getAllOfRuleUrlAll(policy)
-          .map((ruleUrl) => getRule(acr, ruleUrl))
-          .filter(isNotNull);
-      const anyOfRules = getAnyOfRuleUrlAll(policy)
-          .map((ruleUrl) => getRule(acr, ruleUrl))
-          .filter(isNotNull);
-      const noneOfRules = getNoneOfRuleUrlAll(policy)
-          .map((ruleUrl) => getRule(acr, ruleUrl))
-          .filter(isNotNull);
+      // Note: the non-null assertions (`!`) here should be valid because
+      //       the caller of `policyAppliesTo` should already have validated that
+      //       the return value of internal_getPoliciesAndMatchers() did not have any
+      //       inaccessible URLs, so we should be able to find every Matcher.
+      const allOfMatchers = getAllOfMatcherUrlAll(policy).map((matcherUrl) => acpData.matchers.find((matcher) => asIri(matcher) === matcherUrl));
+      const anyOfMatchers = getAnyOfMatcherUrlAll(policy).map((matcherUrl) => acpData.matchers.find((matcher) => asIri(matcher) === matcherUrl));
+      const noneOfMatchers = getNoneOfMatcherUrlAll(policy).map((matcherUrl) => acpData.matchers.find((matcher) => asIri(matcher) === matcherUrl));
       // We assume that this Policy applies if this specific actor is mentioned
       // and no further restrictions are in place.
       // (In other words, the Policy may apply to others *in addition to* this
@@ -9517,59 +11537,53 @@ var SolidClient = (function (exports) {
       // we cannot be sure whether it will apply to this actor.)
       // This means that:
       return (
-      // Every existing allOf Rule explicitly applies explicitly to this given actor:
-      allOfRules.every((rule) => ruleAppliesTo(rule, actorRelation, actor)) &&
-          // If there are anyOf Rules, at least one applies explicitly to this actor:
-          (anyOfRules.length === 0 ||
-              anyOfRules.some((rule) => ruleAppliesTo(rule, actorRelation, actor))) &&
+      // Every existing allOf Matcher explicitly applies explicitly to this given actor:
+      allOfMatchers.every((matcher) => matcherAppliesTo(matcher, actorRelation, actor)) &&
+          // If there are anyOf Matchers, at least one applies explicitly to this actor:
+          (anyOfMatchers.length === 0 ||
+              anyOfMatchers.some((matcher) => matcherAppliesTo(matcher, actorRelation, actor))) &&
+          // There is at least one allOf or anyOf Matcher:
+          allOfMatchers.length + anyOfMatchers.length > 0 &&
           // No further restrictions are in place that make this sometimes not apply
           // to the given actor:
-          noneOfRules.length === 0);
+          noneOfMatchers.length === 0);
   }
-  function policyConflictsWith(policy, otherAccess) {
+  function policyConflictsWith$1(policy, otherAccess) {
       const allowModes = getIriAll(policy, acp.allow);
       const denyModes = getIriAll(policy, acp.deny);
-      return ((otherAccess.read === true && denyModes.includes(acp.Read)) ||
+      return ((otherAccess.read === true &&
+          denyModes.includes(internal_accessModeIriStrings.read)) ||
           (otherAccess.read === false &&
-              allowModes.includes(acp.Read) &&
-              !denyModes.includes(acp.Read)) ||
-          (otherAccess.append === true && denyModes.includes(acp.Append)) ||
+              allowModes.includes(internal_accessModeIriStrings.read) &&
+              !denyModes.includes(internal_accessModeIriStrings.read)) ||
+          (otherAccess.append === true &&
+              denyModes.includes(internal_accessModeIriStrings.append)) ||
           (otherAccess.append === false &&
-              allowModes.includes(acp.Append) &&
-              !denyModes.includes(acp.Append)) ||
-          (otherAccess.write === true && denyModes.includes(acp.Write)) ||
+              allowModes.includes(internal_accessModeIriStrings.append) &&
+              !denyModes.includes(internal_accessModeIriStrings.append)) ||
+          (otherAccess.write === true &&
+              denyModes.includes(internal_accessModeIriStrings.write)) ||
           (otherAccess.write === false &&
-              allowModes.includes(acp.Write) &&
-              !denyModes.includes(acp.Write)));
+              allowModes.includes(internal_accessModeIriStrings.write) &&
+              !denyModes.includes(internal_accessModeIriStrings.write)));
   }
-  function ruleAppliesTo(rule, actorRelation, actor) {
-      // A Rule that does not list *any* actor matches for everyone:
-      let isEmpty = true;
-      knownActorRelations.forEach((knownActorRelation) => {
-          isEmpty && (isEmpty = getIri(rule, knownActorRelation) === null);
-      });
-      return isEmpty || getIriAll(rule, actorRelation).includes(actor);
+  function matcherAppliesTo(matcher, actorRelation, actor) {
+      return getIriAll(matcher, actorRelation).includes(actor);
   }
   /**
-   * Get a set of all actors mentioned in an ACR by active Rules (i.e. that are
+   * Get a set of all actors mentioned in an ACR by active Matchers (i.e. that are
    * referenced by Policies referenced by the ACR Control, and therefore that
    * effectively apply).
    *
-   * @param resource The resource with the ACR we want to inspect
+   * @param acpData All Access Control Policies and Matchers that apply to a particular Resource.
    * @param actorRelation
    */
-  function internal_findActorAll(resource, actorRelation) {
+  function internal_findActorAll$1(acpData, actorRelation) {
       const actors = new Set();
-      // Collect all policies that apply to the resource or its ACR (aka active)
-      const activePolicyUrls = getPolicyUrlAll(resource).concat(getAcrPolicyUrlAll(resource));
-      const rules = getActiveRuleAll(resource, activePolicyUrls);
       // This code could be prettier using flat(), which isn't supported by nodeJS 10.
       // If you read this comment after April 2021, feel free to refactor.
-      rules.forEach((ruleUrl) => {
-          // The rules URL being extracted from the dataset, it is safe to assume
-          // that getThing cannot return undefined.
-          const ruleThing = getThing(internal_getAcr(resource), ruleUrl);
-          getIriAll(ruleThing, actorRelation)
+      acpData.matchers.forEach((matcher) => {
+          getIriAll(matcher, actorRelation)
               .filter((iri) => ![
               acp.PublicAgent,
               acp.CreatorAgent,
@@ -9581,52 +11595,32 @@ var SolidClient = (function (exports) {
   }
   /**
    * Iterate through all the actors active for an ACR, and list all of their access.
-   * @param resource The resource for which we want to list the access
+   * @param acpData All Access Control Policies and Matchers that apply to a particular Resource.
    * @param actorRelation The type of actor we want to list access for
    * @returns A map with each actor access indexed by their URL, or null if some
    * external policies are referenced.
    */
-  function internal_getActorAccessAll(resource, actorRelation) {
-      if (!hasAccessibleAcr(resource) ||
-          internal_hasInaccessiblePolicies(resource)) {
+  function internal_getActorAccessAll$1(acpData, actorRelation) {
+      if (acpData.inaccessibleUrls.length > 0) {
+          // If we can't see all access data,
+          // we can't reliably determine what access actors of the given type have:
           return null;
       }
       const result = {};
-      const actors = internal_findActorAll(resource, actorRelation);
+      const actors = internal_findActorAll$1(acpData, actorRelation);
       actors.forEach((iri) => {
           // The type assertion holds, because if internal_getActorAccess were null,
           // we would have returned {} already.
-          const access = internal_getActorAccess(resource, actorRelation, iri);
+          const access = internal_getActorAccess$1(acpData, actorRelation, iri);
           result[iri] = access;
       });
       return result;
   }
   /**
-   * Get an overview of what access are defined for all Groups in a Resource's Access Control Resource.
-   *
-   * This will only return a value if all relevant access is defined in just the Resource's Access
-   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
-   * other Resources, this function will not be able to determine the access relevant to the mentionned
-   * Groups.
-   *
-   * Additionally, this only considers access given _explicitly_ to individual Groups, i.e. without
-   * additional conditions.
-   *
-   * In other words, this function will generally understand and return the access as set by
-   * [[internal_setAgentAccess]], but not understand more convoluted Policies.
-   *
-   * @param resource Resource that was fetched together with its linked Access Control Resource.
-   * @returns A map with each Group's access indexed by their URL, or null if some
-   * external policies are referenced.
-   */
-  function internal_getGroupAccessAll(resource) {
-      return internal_getActorAccessAll(resource, acp.group);
-  }
-  /**
    * Get an overview of what access are defined for all Agents in a Resource's Access Control Resource.
    *
    * This will only return a value if all relevant access is defined in just the Resource's Access
-   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * Control Resource; in other words, if an Access Policy or Access Matcher applies that is re-used for
    * other Resources, this function will not be able to determine the access relevant to the mentionned
    * Agents.
    *
@@ -9636,22 +11630,22 @@ var SolidClient = (function (exports) {
    * In other words, this function will generally understand and return the access as set by
    * [[internal_setAgentAccess]], but not understand more convoluted Policies.
    *
-   * @param resource Resource that was fetched together with its linked Access Control Resource.
+   * @param acpData All Access Control Policies and Matchers that apply to a particular Resource.
    * @returns A map with each Agent's access indexed by their WebID, or null if some
    * external policies are referenced.
    */
-  function internal_getAgentAccessAll(resource) {
-      return internal_getActorAccessAll(resource, acp.agent);
+  function internal_getAgentAccessAll$1(acpData) {
+      return internal_getActorAccessAll$1(acpData, acp.agent);
   }
   /**
    * Set access to a Resource for a specific actor.
    *
-   * This function adds the relevant Access Control Policies and Rules to a
+   * This function adds the relevant Access Control Policies and Matchers to a
    * Resource's Access Control Resource to define the given access for the given
    * actor specifically. In other words, it can, for example, add Policies that
-   * give a particular Group Read access to the Resource. However, if other
-   * Policies specify that everyone in that Group is *denied* Read access *except*
-   * for a particular Agent, then that will be left intact.
+   * give the general Public Read access to the Resource. However, if other
+   * Policies specify that everyone is *denied* Read access *except* for a
+   * particular Agent, then that will be left intact.
    * This means that, unless *only* this module's functions are used to manipulate
    * access to this Resource, the set access might not be equal to the effective
    * access for an agent matching the given actor.
@@ -9659,7 +11653,7 @@ var SolidClient = (function (exports) {
    * There are a number of preconditions that have to be fulfilled for this
    * function to work:
    * - Access to the Resource is determined via an Access Control Resource.
-   * - The Resource's Access Control Resource does not refer to (Policies or Rules
+   * - The Resource's Access Control Resource does not refer to (Policies or Matchers
    *   in) other Resources.
    * - The current user has access to the Resource's Access Control Resource.
    *
@@ -9670,109 +11664,87 @@ var SolidClient = (function (exports) {
    * for its contained Resources independently.
    *
    * @param resource Resource that was fetched together with its linked Access Control Resource.
-   * @param actorRelation What type of actor (e.g. acp:agent or acp:group) you want to set the access for.
+   * @param acpData All Access Control Policies and Matchers that apply to a particular Resource.
+   * @param actorRelation What type of actor (e.g. acp:agent) you want to set the access for.
    * @param actor Which instance of the given actor type you want to set the access for.
    * @param access What access (read, append, write, controlRead, controlWrite) to set for the given actor. `true` to allow, `false` to deny, and `undefined` to leave unchanged.
    * @returns The Resource with the updated Access Control Resource attached, if updated successfully, or `null` if not.
    */
-  function internal_setActorAccess(resource, actorRelation, actor, access) {
+  function internal_setActorAccess$1(resource, acpData, actorRelation, actor, access) {
       var _a, _b, _c, _d, _e;
-      if (!hasAccessibleAcr(resource) ||
-          internal_hasInaccessiblePolicies(resource)) {
+      if (!hasAccessibleAcr(resource) || acpData.inaccessibleUrls.length > 0) {
           return null;
       }
       // Get the access that currently applies to the given actor
-      const existingAccess = internal_getActorAccess(resource, actorRelation, actor);
+      const existingAccess = internal_getActorAccess$1(acpData, actorRelation, actor);
       /* istanbul ignore if: It returns null if the ACR has inaccessible Policies, which should happen since we already check for that above. */
       if (existingAccess === null) {
           return null;
       }
       // Get all Policies that apply specifically to the given actor
-      const acr = internal_getAcr(resource);
-      const acrPolicyUrls = getAcrPolicyUrlAll(resource);
-      const acrPolicies = acrPolicyUrls
-          // This is a temporary workaround until ESS removes its default Policy references:
-          .filter((policyUrl) => !isDefaultEssPolicyUrl(policyUrl, getSourceIri(resource)))
-          .map((policyUrl) => getPolicy(acr, policyUrl))
-          .filter((policy) => policy !== null);
-      const applicableAcrPolicies = acrPolicies.filter((policy) => policyAppliesTo(policy, actorRelation, actor, acr));
-      const policyUrls = getPolicyUrlAll(resource);
-      const policies = policyUrls
-          // This is a temporary workaround until ESS removes its default Policy references:
-          .filter((policyUrl) => !isDefaultEssPolicyUrl(policyUrl, getSourceIri(resource)))
-          .map((policyUrl) => getPolicy(acr, policyUrl))
-          .filter((policy) => policy !== null);
-      const applicablePolicies = policies.filter((policy) => policyAppliesTo(policy, actorRelation, actor, acr));
+      const applicableAcrPolicies = acpData.acrPolicies.filter((policy) => policyAppliesTo$1(policy, actorRelation, actor, acpData));
+      const applicablePolicies = acpData.policies.filter((policy) => policyAppliesTo$1(policy, actorRelation, actor, acpData));
       // We only need to override Policies that define access other than what we want:
-      const conflictingAcrPolicies = applicableAcrPolicies.filter((policy) => policyConflictsWith(policy, {
+      const conflictingAcrPolicies = applicableAcrPolicies.filter((policy) => policyConflictsWith$1(policy, {
           read: access.controlRead,
           write: access.controlWrite,
       }));
-      const conflictingPolicies = applicablePolicies.filter((policy) => policyConflictsWith(policy, {
+      const conflictingPolicies = applicablePolicies.filter((policy) => policyConflictsWith$1(policy, {
           read: access.read,
           append: access.append,
           write: access.write,
       }));
       // For every Policy that applies specifically to the given Actor, but _also_
-      // to another actor (i.e. that applies using an anyOf Rule, or a Rule that
+      // to another actor (i.e. that applies using an anyOf Matcher, or a Matcher that
       // mentions both the given and another actor)...
-      const otherActorAcrPolicies = conflictingAcrPolicies.filter((acrPolicy) => policyHasOtherActors(acrPolicy, actorRelation, actor, acr));
-      const otherActorPolicies = conflictingPolicies.filter((policy) => policyHasOtherActors(policy, actorRelation, actor, acr));
+      const otherActorAcrPolicies = conflictingAcrPolicies.filter((acrPolicy) => policyHasOtherActors$1(acrPolicy, actorRelation, actor, acpData));
+      const otherActorPolicies = conflictingPolicies.filter((policy) => policyHasOtherActors$1(policy, actorRelation, actor, acpData));
       // ...check what access the current actor would have if we removed them...
-      const otherActorAcrPolicyUrls = otherActorAcrPolicies.map((acrPolicy) => asIri(acrPolicy));
-      const otherActorPolicyUrls = otherActorPolicies.map((policy) => asIri(policy));
-      let resourceWithPoliciesExcluded = otherActorAcrPolicyUrls.reduce(removeAcrPolicyUrl, resource);
-      resourceWithPoliciesExcluded = otherActorPolicyUrls.reduce(removePolicyUrl, resourceWithPoliciesExcluded);
-      const remainingAccess = internal_getActorAccess(resourceWithPoliciesExcluded, actorRelation, actor);
+      const acpDataWithPoliciesExcluded = Object.assign(Object.assign({}, acpData), { acrPolicies: acpData.acrPolicies.filter((acrPolicy) => !otherActorAcrPolicies.includes(acrPolicy)), policies: acpData.policies.filter((policy) => !otherActorPolicies.includes(policy)) });
+      const remainingAccess = internal_getActorAccess$1(acpDataWithPoliciesExcluded, actorRelation, actor);
       /* istanbul ignore if: It returns null if the ACR has inaccessible Policies, which should happen since we already check for that at the start. */
       if (remainingAccess === null) {
           return null;
       }
-      // ...add copies of those Policies and their Rules, but excluding the given actor...
-      let updatedAcr = acr;
-      const newAcrPolicyUrls = [];
+      // ...add copies of those Policies and their Matchers, but excluding the given actor...
+      let updatedResource = resource;
       otherActorAcrPolicies.forEach((acrPolicy) => {
-          const [policyCopy, ruleCopies] = copyPolicyExcludingActor(acrPolicy, acr, actorRelation, actor);
-          updatedAcr = setThing(updatedAcr, policyCopy);
-          updatedAcr = ruleCopies.reduce(setThing, updatedAcr);
-          newAcrPolicyUrls.push(asIri(policyCopy));
+          const [policyCopy, matcherCopies] = copyPolicyExcludingActor$1(acrPolicy, resource, acpData, actorRelation, actor);
+          updatedResource = setResourceAcrPolicy(updatedResource, policyCopy);
+          updatedResource = matcherCopies.reduce(setResourceMatcher, updatedResource);
       });
-      const newPolicyUrls = [];
       otherActorPolicies.forEach((policy) => {
-          const [policyCopy, ruleCopies] = copyPolicyExcludingActor(policy, acr, actorRelation, actor);
-          updatedAcr = setThing(updatedAcr, policyCopy);
-          updatedAcr = ruleCopies.reduce(setThing, updatedAcr);
-          newPolicyUrls.push(asIri(policyCopy));
+          const [policyCopy, matcherCopies] = copyPolicyExcludingActor$1(policy, resource, acpData, actorRelation, actor);
+          updatedResource = setResourcePolicy(updatedResource, policyCopy);
+          updatedResource = matcherCopies.reduce(setResourceMatcher, updatedResource);
       });
       // ...add a new Policy that applies the given access,
       // and the previously applying access for access modes that were undefined...
-      const newRuleIri = getSourceIri(acr) + `#rule_${encodeURIComponent(actorRelation)}_${actor}`;
-      let newRule = createRule(newRuleIri);
-      newRule = setIri(newRule, actorRelation, actor);
+      const newMatcherName = `matcher_${encodeURIComponent(`${actorRelation}_${actor}`)}`;
+      let newMatcher = createResourceMatcherFor(resource, newMatcherName);
+      newMatcher = setIri(newMatcher, actorRelation, actor);
       const newControlReadAccess = (_a = access.controlRead) !== null && _a !== void 0 ? _a : existingAccess.controlRead;
       const newControlWriteAccess = (_b = access.controlWrite) !== null && _b !== void 0 ? _b : existingAccess.controlWrite;
       let acrPoliciesToUnapply = otherActorAcrPolicies;
       // Only replace existing Policies if the defined access actually changes:
       if (newControlReadAccess !== remainingAccess.controlRead ||
           newControlWriteAccess !== remainingAccess.controlWrite) {
-          const newAcrPolicyIri = getSourceIri(acr) +
-              `#acr_policy` +
-              `_${encodeURIComponent(actorRelation)}_${actor}` +
+          const newAcrPolicyName = `acr_policy` +
+              `_${encodeURIComponent(`${actorRelation}_${actor}`)}` +
               `_${Date.now()}_${Math.random()}`;
-          let newAcrPolicy = createPolicy(newAcrPolicyIri);
-          newAcrPolicy = setAllowModes(newAcrPolicy, {
+          let newAcrPolicy = createResourcePolicyFor(resource, newAcrPolicyName);
+          newAcrPolicy = setAllowModesV2(newAcrPolicy, {
               read: newControlReadAccess === true,
               append: false,
               write: newControlWriteAccess === true,
           });
-          newAcrPolicy = addIri(newAcrPolicy, acp.allOf, newRule);
-          updatedAcr = setThing(updatedAcr, newAcrPolicy);
-          updatedAcr = setThing(updatedAcr, newRule);
-          newAcrPolicyUrls.push(newAcrPolicyIri);
+          newAcrPolicy = addIri(newAcrPolicy, acp.allOf, newMatcher);
+          updatedResource = setResourceAcrPolicy(updatedResource, newAcrPolicy);
+          updatedResource = setResourceMatcher(updatedResource, newMatcher);
           // If we don't have to set new access, we only need to unapply the
           // ACR Policies that applied to both the given actor and other actors
           // (because they have been replaced by clones not mentioning the given
-          // actor). Hence `policiesToUnApply` is initialied to `otherActorPolicies`.
+          // actor). Hence `policiesToUnApply` is initialised to `otherActorPolicies`.
           // However, if we're in this if branch, that means we also had to replace
           // Policies that defined access for just this actor, so we'll have to remove
           // all Policies mentioning this actor:
@@ -9786,24 +11758,22 @@ var SolidClient = (function (exports) {
       if (newReadAccess !== remainingAccess.read ||
           newAppendAccess !== remainingAccess.append ||
           newWriteAccess !== remainingAccess.write) {
-          const newPolicyIri = getSourceIri(acr) +
-              `#policy` +
-              `_${encodeURIComponent(actorRelation)}_${encodeURIComponent(actor)}` +
+          const newPolicyName = `policy` +
+              `_${encodeURIComponent(`${actorRelation}_${actor}`)}` +
               `_${Date.now()}_${Math.random()}`;
-          let newPolicy = createPolicy(newPolicyIri);
-          newPolicy = setAllowModes(newPolicy, {
+          let newPolicy = createResourcePolicyFor(resource, newPolicyName);
+          newPolicy = setAllowModesV2(newPolicy, {
               read: newReadAccess === true,
               append: newAppendAccess === true,
               write: newWriteAccess === true,
           });
-          newPolicy = addIri(newPolicy, acp.allOf, newRule);
-          updatedAcr = setThing(updatedAcr, newPolicy);
-          updatedAcr = setThing(updatedAcr, newRule);
-          newPolicyUrls.push(newPolicyIri);
+          newPolicy = addIri(newPolicy, acp.allOf, newMatcher);
+          updatedResource = setResourcePolicy(updatedResource, newPolicy);
+          updatedResource = setResourceMatcher(updatedResource, newMatcher);
           // If we don't have to set new access, we only need to unapply the
           // Policies that applied to both the given actor and other actors (because
           // they have been replaced by clones not mentioning the given actor). Hence
-          // `policiesToUnApply` is initialied to `otherActorPolicies`.
+          // `policiesToUnApply` is initialised to `otherActorPolicies`.
           // However, if we're in this if branch, that means we also had to replace
           // Policies that defined access for just this actor, so we'll have to remove
           // all Policies mentioning this actor:
@@ -9812,30 +11782,23 @@ var SolidClient = (function (exports) {
       // ...then remove existing Policy URLs that mentioned both the given actor
       // and other actors from the given Resource and apply the new ones (but do not
       // remove the actual old Policies - they might still apply to other Resources!).
-      let updatedResource = internal_setAcr(resource, updatedAcr);
       acrPoliciesToUnapply.forEach((previouslyApplicableAcrPolicy) => {
           updatedResource = removeAcrPolicyUrl(updatedResource, asIri(previouslyApplicableAcrPolicy));
       });
-      newAcrPolicyUrls.forEach((newAcrPolicyUrl) => {
-          updatedResource = addAcrPolicyUrl(updatedResource, newAcrPolicyUrl);
-      });
       policiesToUnapply.forEach((previouslyApplicablePolicy) => {
           updatedResource = removePolicyUrl(updatedResource, asIri(previouslyApplicablePolicy));
-      });
-      newPolicyUrls.forEach((newPolicyUrl) => {
-          updatedResource = addPolicyUrl(updatedResource, newPolicyUrl);
       });
       return updatedResource;
   }
   /**
    * Set access to a Resource for a specific Agent.
    *
-   * This function adds the relevant Access Control Policies and Rules to a
+   * This function adds the relevant Access Control Policies and Matchers to a
    * Resource's Access Control Resource to define the given access for the given
    * Agent specifically. In other words, it can, for example, add Policies that
    * give a particular Agent Read access to the Resource. However, if other
-   * Policies specify that that Agent is *denied* Read access *except* if they're
-   * in a particular Group, then that will be left intact.
+   * Policies specify that that Agent is *denied* Read access *except* if they
+   * match on some other characteristic, then that will be left intact.
    * This means that, unless *only* this function is used to manipulate access to
    * this Resource, the set access might not be equal to the effective access for
    * the given Agent.
@@ -9843,7 +11806,7 @@ var SolidClient = (function (exports) {
    * There are a number of preconditions that have to be fulfilled for this
    * function to work:
    * - Access to the Resource is determined via an Access Control Resource.
-   * - The Resource's Access Control Resource does not refer to (Policies or Rules
+   * - The Resource's Access Control Resource does not refer to (Policies or Matchers
    *   in) other Resources.
    * - The current user has access to the Resource's Access Control Resource.
    *
@@ -9854,56 +11817,23 @@ var SolidClient = (function (exports) {
    * for its contained Resources independently.
    *
    * @param resource Resource that was fetched together with its linked Access Control Resource.
+   * @param acpData All Access Control Policies and Matchers that apply to a particular Resource.
    * @param webId Which Agent you want to set the access for.
    * @param access What access (read, append, write, controlRead, controlWrite) to set for the given Agent. `true` to allow, `false` to deny, and `undefined` to leave unchanged.
    * @returns The Resource with the updated Access Control Resource attached, if updated successfully, or `null` if not.
    */
-  function internal_setAgentAccess(resource, webId, access) {
-      return internal_setActorAccess(resource, acp.agent, webId, access);
-  }
-  /**
-   * Set access to a Resource for a specific Group.
-   *
-   * This function adds the relevant Access Control Policies and Rules to a
-   * Resource's Access Control Resource to define the given access for the given
-   * Group specifically. In other words, it can, for example, add Policies that
-   * give a particular Group Read access to the Resource. However, if other
-   * Policies specify that it is *denied* Read access *except* if they're a
-   * particular Agent, then that will be left intact.
-   * This means that, unless *only* this module's functions are used to manipulate
-   * access to this Resource, the set access might not be equal to the effective
-   * access for Agents in the given Group.
-   *
-   * There are a number of preconditions that have to be fulfilled for this
-   * function to work:
-   * - Access to the Resource is determined via an Access Control Resource.
-   * - The Resource's Access Control Resource does not refer to (Policies or Rules
-   *   in) other Resources.
-   * - The current user has access to the Resource's Access Control Resource.
-   *
-   * If those conditions do not hold, this function will return `null`.
-   *
-   * Additionally, take note that the given access will only be applied to the
-   * given Resource; if that Resource is a Container, access will have to be set
-   * for its contained Resources independently.
-   *
-   * @param resource Resource that was fetched together with its linked Access Control Resource.
-   * @param groupUrl Which Group you want to set the access for.
-   * @param access What access (read, append, write, controlRead, controlWrite) to set for the given Group. `true` to allow, `false` to deny, and `undefined` to leave unchanged.
-   * @returns The Resource with the updated Access Control Resource attached, if updated successfully, or `null` if not.
-   */
-  function internal_setGroupAccess(resource, groupUrl, access) {
-      return internal_setActorAccess(resource, acp.group, groupUrl, access);
+  function internal_setAgentAccess$1(resource, acpData, webId, access) {
+      return internal_setActorAccess$1(resource, acpData, acp.agent, webId, access);
   }
   /**
    * Set access to a Resource for everybody.
    *
-   * This function adds the relevant Access Control Policies and Rules to a
+   * This function adds the relevant Access Control Policies and Matchers to a
    * Resource's Access Control Resource to define the given access for everybody
    * specifically. In other words, it can, for example, add Policies that
    * give everybody Read access to the Resource. However, if other
    * Policies specify that everybody is *denied* Read access *except* if they're
-   * in a particular Group, then that will be left intact.
+   * a particular Agent, then that will be left intact.
    * This means that, unless *only* this module's functions are used to manipulate
    * access to this Resource, the set access might not be equal to the effective
    * access for a particular Agent.
@@ -9911,7 +11841,7 @@ var SolidClient = (function (exports) {
    * There are a number of preconditions that have to be fulfilled for this
    * function to work:
    * - Access to the Resource is determined via an Access Control Resource.
-   * - The Resource's Access Control Resource does not refer to (Policies or Rules
+   * - The Resource's Access Control Resource does not refer to (Policies or Matchers
    *   in) other Resources.
    * - The current user has access to the Resource's Access Control Resource.
    *
@@ -9922,149 +11852,185 @@ var SolidClient = (function (exports) {
    * for its contained Resources independently.
    *
    * @param resource Resource that was fetched together with its linked Access Control Resource.
+   * @param acpData All Access Control Policies and Matchers that apply to a particular Resource.
    * @param access What access (read, append, write, controlRead, controlWrite) to set for everybody. `true` to allow, `false` to deny, and `undefined` to leave unchanged.
    * @returns The Resource with the updated Access Control Resource attached, if updated successfully, or `null` if not.
    */
-  function internal_setPublicAccess(resource, access) {
-      return internal_setActorAccess(resource, acp.agent, acp.PublicAgent, access);
+  function internal_setPublicAccess$1(resource, acpData, access) {
+      return internal_setActorAccess$1(resource, acpData, acp.agent, acp.PublicAgent, access);
   }
-  function policyHasOtherActors(policy, actorRelation, actor, policyAndRuleResource) {
-      const allOfRulesHaveOtherActors = getIriAll(policy, acp.allOf).some((ruleUrl) => {
-          const rule = getRule(policyAndRuleResource, ruleUrl);
-          /* istanbul ignore if This function only gets called after policyAppliesTo, which already filters out non-existent Rules. */
-          if (rule === null) {
-              return false;
-          }
-          return ruleHasOtherActors(rule, actorRelation, actor);
+  function policyHasOtherActors$1(policy, actorRelation, actor, acpData) {
+      // Note: the non-null assertions (`!`) here should be valid because
+      //       the caller of `policyHasOtherActors` should already have validated
+      //       that the return value of internal_getPoliciesAndMatchers() did not have
+      //       any inaccessible URLs, so we should be able to find every Matcher.
+      const allOfMatchers = getIriAll(policy, acp.allOf).map((matcherUrl) => acpData.matchers.find((matcher) => asIri(matcher) === matcherUrl));
+      const allOfMatchersHaveOtherActors = allOfMatchers.some((matcher) => {
+          return matcherHasOtherActors(matcher, actorRelation, actor);
       });
-      const anyOfRulesHaveOtherActors = getIriAll(policy, acp.anyOf).some((ruleUrl) => {
-          const rule = getRule(policyAndRuleResource, ruleUrl);
-          /* istanbul ignore if This function only gets called after policyAppliesTo, which already filters out non-existent Rules. */
-          if (rule === null) {
-              return false;
-          }
-          return ruleHasOtherActors(rule, actorRelation, actor);
+      const anyOfMatchers = getIriAll(policy, acp.anyOf).map((matcherUrl) => acpData.matchers.find((matcher) => asIri(matcher) === matcherUrl));
+      const anyOfMatchersHaveOtherActors = anyOfMatchers.some((matcher) => {
+          return matcherHasOtherActors(matcher, actorRelation, actor);
       });
-      /* istanbul ignore next This function only gets called after policyAppliesTo, which already filters out all noneOf Rules */
-      const noneOfRulesHaveOtherActors = getIriAll(policy, acp.noneOf).some((ruleUrl) => {
-          const rule = getRule(policyAndRuleResource, ruleUrl);
-          if (rule === null) {
-              return false;
-          }
-          return ruleHasOtherActors(rule, actorRelation, actor);
+      /* istanbul ignore next This function only gets called after policyAppliesTo, which already filters out all noneOf Matchers */
+      const noneOfMatchers = getIriAll(policy, acp.noneOf).map((matcherUrl) => acpData.matchers.find((matcher) => asIri(matcher) === matcherUrl));
+      /* istanbul ignore next This function only gets called after policyAppliesTo, which already filters out all noneOf Matchers */
+      const noneOfMatchersHaveOtherActors = noneOfMatchers.some((matcher) => {
+          return matcherHasOtherActors(matcher, actorRelation, actor);
       });
-      return (allOfRulesHaveOtherActors ||
-          anyOfRulesHaveOtherActors ||
-          noneOfRulesHaveOtherActors);
+      return (allOfMatchersHaveOtherActors ||
+          anyOfMatchersHaveOtherActors ||
+          noneOfMatchersHaveOtherActors);
   }
-  function ruleHasOtherActors(rule, actorRelation, actor) {
+  function matcherHasOtherActors(matcher, actorRelation, actor) {
       const otherActors = [];
-      knownActorRelations.forEach((knownActorRelation) => {
-          const otherActorsWithThisRelation = getIriAll(rule, knownActorRelation).filter((applicableActor) => applicableActor !== actor || knownActorRelation !== actorRelation);
+      knownActorRelations$1.forEach((knownActorRelation) => {
+          const otherActorsWithThisRelation = getIriAll(matcher, knownActorRelation).filter((applicableActor) => applicableActor !== actor || knownActorRelation !== actorRelation);
           // Unfortunately Node 10 does not support `.flat()` yet, hence the use of `push`:
           otherActors.push(...otherActorsWithThisRelation);
       });
       return otherActors.length > 0;
   }
-  function copyPolicyExcludingActor(inputPolicy, policyAndRuleDataset, actorRelationToExclude, actorToExclude) {
-      const newIriSuffix = "_copy_wihout" +
+  function copyPolicyExcludingActor$1(inputPolicy, resourceWithAcr, acpData, actorRelationToExclude, actorToExclude) {
+      const newIriSuffix = "_copy_without" +
           `_${encodeURIComponent(actorRelationToExclude)}_${actorToExclude}` +
           `_${Date.now()}_${Math.random()}`;
-      // Create new Rules for the Policy, excluding the given Actor
-      const newAllOfRules = copyRulesExcludingActor(getIriAll(inputPolicy, acp.allOf), policyAndRuleDataset, newIriSuffix, actorRelationToExclude, actorToExclude);
-      const newAnyOfRules = copyRulesExcludingActor(getIriAll(inputPolicy, acp.anyOf), policyAndRuleDataset, newIriSuffix, actorRelationToExclude, actorToExclude);
-      const newNoneOfRules = copyRulesExcludingActor(getIriAll(inputPolicy, acp.noneOf), policyAndRuleDataset, newIriSuffix, actorRelationToExclude, actorToExclude);
-      // Create a new Policy with the new Rules
-      let newPolicy = createPolicy(asIri(inputPolicy) + newIriSuffix);
+      // Create new Matchers for the Policy, excluding the given Actor
+      const newAllOfMatchers = copyMatchersExcludingActor(getIriAll(inputPolicy, acp.allOf), resourceWithAcr, acpData, newIriSuffix, actorRelationToExclude, actorToExclude);
+      const newAnyOfMatchers = copyMatchersExcludingActor(getIriAll(inputPolicy, acp.anyOf), resourceWithAcr, acpData, newIriSuffix, actorRelationToExclude, actorToExclude);
+      const newNoneOfMatchers = copyMatchersExcludingActor(getIriAll(inputPolicy, acp.noneOf), resourceWithAcr, acpData, newIriSuffix, actorRelationToExclude, actorToExclude);
+      // Create a new Policy with the new Matchers
+      let newPolicy = createResourcePolicyFor(resourceWithAcr, encodeURI(asIri(inputPolicy)) + newIriSuffix);
       getIriAll(inputPolicy, acp.allow).forEach((allowMode) => {
           newPolicy = addIri(newPolicy, acp.allow, allowMode);
       });
       getIriAll(inputPolicy, acp.deny).forEach((denyMode) => {
           newPolicy = addIri(newPolicy, acp.deny, denyMode);
       });
-      newAllOfRules.forEach((newRule) => {
-          newPolicy = addIri(newPolicy, acp.allOf, newRule);
+      newAllOfMatchers.forEach((newMatcher) => {
+          newPolicy = addIri(newPolicy, acp.allOf, newMatcher);
       });
-      newAnyOfRules.forEach((newRule) => {
-          newPolicy = addIri(newPolicy, acp.anyOf, newRule);
+      newAnyOfMatchers.forEach((newMatcher) => {
+          newPolicy = addIri(newPolicy, acp.anyOf, newMatcher);
       });
-      /* istanbul ignore next Policies listing noneOf Rules are left alone (because they do not unambiguously apply to the given actor always), so there will usually not be any noneOf Rules to copy. */
-      newNoneOfRules.forEach((newRule) => {
-          newPolicy = addIri(newPolicy, acp.noneOf, newRule);
+      /* istanbul ignore next Policies listing noneOf Matchers are left alone (because they do not unambiguously apply to the given actor always), so there will usually not be any noneOf Matchers to copy. */
+      newNoneOfMatchers.forEach((newMatcher) => {
+          newPolicy = addIri(newPolicy, acp.noneOf, newMatcher);
       });
       return [
           newPolicy,
-          newAllOfRules.concat(newAnyOfRules).concat(newNoneOfRules),
+          newAllOfMatchers.concat(newAnyOfMatchers).concat(newNoneOfMatchers),
       ];
   }
-  /** Creates clones of all the Rules identified by `ruleIris` in `ruleDataset`, excluding the given Actor */
-  function copyRulesExcludingActor(ruleIris, ruleDataset, iriSuffix, actorRelationToExclude, actorToExclude) {
-      return ruleIris
-          .map((ruleIri) => {
-          const rule = getRule(ruleDataset, ruleIri);
-          if (rule === null) {
+  /** Creates clones of all the Matchers identified by `matcherIris` in `acpData`, excluding the given Actor */
+  function copyMatchersExcludingActor(matcherIris, resourceWithAcr, acpData, iriSuffix, actorRelationToExclude, actorToExclude) {
+      return matcherIris
+          .map((matcherIri) => {
+          const matcher = acpData.matchers.find((matcher) => asIri(matcher) === matcherIri);
+          /* istanbul ignore if: getPoliciesAndMatchers should already have fetched all referenced Matchers, so this should never be true: */
+          if (typeof matcher === "undefined") {
               return null;
           }
-          let newRule = createRule(asIri(rule) + iriSuffix);
+          let newMatcher = createResourceMatcherFor(resourceWithAcr, encodeURI(asIri(matcher)) + iriSuffix);
           let listsOtherActors = false;
-          knownActorRelations.forEach((knownActorRelation) => {
-              getIriAll(rule, knownActorRelation).forEach((targetActor) => {
+          knownActorRelations$1.forEach((knownActorRelation) => {
+              getIriAll(matcher, knownActorRelation).forEach((targetActor) => {
                   if (knownActorRelation === actorRelationToExclude &&
                       targetActor === actorToExclude) {
                       return;
                   }
                   listsOtherActors = true;
-                  newRule = addIri(newRule, knownActorRelation, targetActor);
+                  newMatcher = addIri(newMatcher, knownActorRelation, targetActor);
               });
           });
-          return listsOtherActors ? newRule : null;
+          return listsOtherActors ? newMatcher : null;
       })
-          .filter(isNotNull);
+          .filter(isNotNull$1);
   }
-  function isNotNull(value) {
+  function isNotNull$1(value) {
       return value !== null;
   }
-  /**
-   * Work around ESS adding references to external Policies to ACRs by default.
-   *
-   * Inrupt's Enterprise Solid Server by default adds a reference to a Policy in
-   * every ACR that is not local to that ACR. This will be removed in the near
-   * future: they only reflect access that holds anyway (i.e. the Pod Owner's
-   * access), and removing them does not actually change that access.
-   *
-   * However, until that is implemented, we manually ignore those Policies as a
-   * workaround, rather than always returning `null` because we cannot read them
-   * in the ACR itself.
-   *
-   * When ESS is updated, delete this function and remove references to it to
-   * remove the workaround.
-   *
-   * @param policyUrl URL of a Policy.
-   * @param resourceUrl Resource in whose ACR that URL is referenced.
-   * @returns Whether the given Policy URL is a URL the Inrupt's Enterprise Solid Server has added by default for the given Resource.
-   */
-  function isDefaultEssPolicyUrl(policyUrl, resourceUrl) {
-      const essServers = [
-          "https://pod.inrupt.com",
-          "https://demo-ess.inrupt.com",
-          "https://dev-ess.inrupt.com",
-      ];
-      return essServers.some((essServer) => {
-          if (!resourceUrl.startsWith(essServer)) {
-              return false;
-          }
-          // ESS Pods are of the form <origin>/<username>/,
-          // and resource URLs are subpaths of that.
-          // Hence, we can get the Pod root by getting everything up to and including
-          // the first slash after the origin's trailing slash:
-          const resourcePath = resourceUrl.substring(essServer.length + "/".length);
-          const podRoot = resourceUrl.substring(0, essServer.length + "/".length + resourcePath.indexOf("/") + "/".length);
-          return policyUrl === podRoot + "policies/#Owner";
+  async function internal_getPoliciesAndMatchers(resource, options = internal_defaultFetchOptions) {
+      const acrPolicyUrls = getAcrPolicyUrlAll(resource);
+      const policyUrls = getPolicyUrlAll(resource);
+      const allPolicyResourceUrls = getResourceUrls$1(acrPolicyUrls).concat(getResourceUrls$1(policyUrls));
+      const policyResources = await getResources$1(allPolicyResourceUrls, options);
+      const acrPolicies = getThingsFromResources$1(acrPolicyUrls, policyResources).filter(isNotNull$1);
+      const policies = getThingsFromResources$1(policyUrls, policyResources).filter(isNotNull$1);
+      const matcherUrlSet = new Set();
+      acrPolicies.forEach((acrPolicy) => {
+          const referencedMatcherUrls = getReferencedMatcherUrls(acrPolicy);
+          referencedMatcherUrls.forEach((matcherUrl) => {
+              matcherUrlSet.add(matcherUrl);
+          });
       });
+      policies.forEach((policy) => {
+          const referencedMatcherUrls = getReferencedMatcherUrls(policy);
+          referencedMatcherUrls.forEach((matcherUrl) => {
+              matcherUrlSet.add(matcherUrl);
+          });
+      });
+      const matcherUrls = Array.from(matcherUrlSet);
+      const matcherResourceUrls = matcherUrls.map((matcherUrl) => getResourceUrl$1(matcherUrl));
+      const unfetchedMatcherResourceUrls = matcherResourceUrls.filter((matcherResourceUrl) => !allPolicyResourceUrls.includes(matcherResourceUrl));
+      const matcherResources = await getResources$1(unfetchedMatcherResourceUrls, options);
+      const allResources = Object.assign(Object.assign({}, policyResources), matcherResources);
+      const matchers = getThingsFromResources$1(matcherUrls, allResources).filter(isNotNull$1);
+      const inaccessibleUrls = Object.keys(allResources).filter((resourceUrl) => allResources[resourceUrl] === null);
+      return {
+          inaccessibleUrls: inaccessibleUrls,
+          acrPolicies: acrPolicies,
+          policies: policies,
+          matchers: matchers,
+      };
+  }
+  function getResourceUrl$1(thingUrl) {
+      const thingUrlObject = new URL(thingUrl);
+      thingUrlObject.hash = "";
+      return thingUrlObject.href;
+  }
+  function getResourceUrls$1(thingUrls) {
+      const resourceUrls = [];
+      thingUrls.forEach((thingUrl) => {
+          const resourceUrl = getResourceUrl$1(thingUrl);
+          if (!resourceUrls.includes(resourceUrl)) {
+              resourceUrls.push(resourceUrl);
+          }
+      });
+      return resourceUrls;
+  }
+  async function getResources$1(resourceUrls, options) {
+      const uniqueResourceUrls = Array.from(new Set(resourceUrls));
+      const resources = {};
+      await Promise.all(uniqueResourceUrls.map(async (resourceUrl) => {
+          try {
+              const resource = await getSolidDataset(resourceUrl, options);
+              resources[resourceUrl] = resource;
+          }
+          catch (e) {
+              resources[resourceUrl] = null;
+          }
+      }));
+      return resources;
+  }
+  function getThingsFromResources$1(thingUrls, resources) {
+      return thingUrls.map((thingUrl) => {
+          const resourceUrl = getResourceUrl$1(thingUrl);
+          const resource = resources[resourceUrl];
+          if (!resource) {
+              return null;
+          }
+          return getThing(resource, thingUrl);
+      });
+  }
+  function getReferencedMatcherUrls(policy) {
+      return getAllOfMatcherUrlAll(policy)
+          .concat(getAnyOfMatcherUrlAll(policy))
+          .concat(getNoneOfMatcherUrlAll(policy));
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -10155,8 +12121,8 @@ var SolidClient = (function (exports) {
    * @param options Optional parameter `options.fetch`: An alternative `fetch` function to make the HTTP request, compatible with the browser-native [fetch API](https://developer.mozilla.org/docs/Web/API/WindowOrWorkerGlobalScope/fetch#parameters).
    * @returns What Access modes are granted to the given Agent explicitly, or null if it could not be determined.
    */
-  function getAgentAccess$1(resource, agent, options = internal_defaultFetchOptions) {
-      return getActorAccess(resource, agent, getAgentAccess$2, options);
+  function getAgentAccess$2(resource, agent, options = internal_defaultFetchOptions) {
+      return getActorAccess(resource, agent, getAgentAccess$3, options);
   }
   /**
    * For a given Resource, look up its metadata, and read the Access permissions
@@ -10187,8 +12153,8 @@ var SolidClient = (function (exports) {
    * @param options Optional parameter `options.fetch`: An alternative `fetch` function to make the HTTP request, compatible with the browser-native [fetch API](https://developer.mozilla.org/docs/Web/API/WindowOrWorkerGlobalScope/fetch#parameters).
    * @returns What Access modes are granted to the everyone explicitly, or null if it could not be determined.
    */
-  function getPublicAccess$1(resource, options = internal_defaultFetchOptions) {
-      return getActorClassAccess(resource, getPublicAccess$2, options);
+  function getPublicAccess$2(resource, options = internal_defaultFetchOptions) {
+      return getActorClassAccess(resource, getPublicAccess$3, options);
   }
   /**
    * For a given Resource, look up its metadata, and read the Access permissions
@@ -10203,8 +12169,8 @@ var SolidClient = (function (exports) {
    * @param options Optional parameter `options.fetch`: An alternative `fetch` function to make the HTTP request, compatible with the browser-native [fetch API](https://developer.mozilla.org/docs/Web/API/WindowOrWorkerGlobalScope/fetch#parameters).
    * @returns A map of Agent WebIDs and the access granted to them, or null if it could not be determined.
    */
-  function getAgentAccessAll$1(resource, options = internal_defaultFetchOptions) {
-      return getActorAccessAll(resource, getAgentAccessAll$2, options);
+  function getAgentAccessAll$2(resource, options = internal_defaultFetchOptions) {
+      return getActorAccessAll(resource, getAgentAccessAll$3, options);
   }
   /**
    * For a given Resource, look up its metadata, and read the Access permissions
@@ -10295,7 +12261,7 @@ var SolidClient = (function (exports) {
    * be set.
    */
   async function setAgentResourceAccess(resource, agent, access, options = internal_defaultFetchOptions) {
-      return await setActorAccess(resource, agent, access, getAgentAccess$2, setAgentResourceAccess$1, options);
+      return await setActorAccess(resource, agent, access, getAgentAccess$3, setAgentResourceAccess$1, options);
   }
   /**
    * Set the Access modes for a given Group to a given Resource.
@@ -10338,11 +12304,1185 @@ var SolidClient = (function (exports) {
    * be set.
    */
   async function setPublicResourceAccess(resource, access, options = internal_defaultFetchOptions) {
-      return await setActorClassAccess(resource, access, getPublicAccess$2, setPublicResourceAccess$1, options);
+      return await setActorClassAccess(resource, access, getPublicAccess$3, setPublicResourceAccess$1, options);
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+  const knownActorRelations = [acp.agent, acp.group];
+  /**
+   * Get an overview of what access is defined for a given actor in a Resource's Access Control Resource.
+   *
+   * This will only return a value if all relevant access is defined in just the Resource's Access
+   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * other Resources, this function will not be able to determine the access relevant to this actor.
+   *
+   * Additionally, this only considers access given _explicitly_ to the given actor, i.e. without
+   * additional conditions.
+   *
+   * In other words, this function will generally understand and return the access as set by
+   * [[internal_setActorAccess]], but not understand more convoluted Policies.
+   *
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @param actorRelation What type of actor (e.g. acp:agent or acp:group) you want to get the access for.
+   * @param actor Which instance of the given actor type you want to get the access for.
+   * @returns What Access modes are granted to the given actor explicitly, or null if it could not be determined.
+   */
+  function internal_getActorAccess(acpData, actorRelation, actor) {
+      if (acpData.inaccessibleUrls.length > 0) {
+          // If we can't see all access data,
+          // we can't reliably determine what access the given actor has:
+          return null;
+      }
+      const applicableAcrPolicies = acpData.acrPolicies.filter((policy) => policyAppliesTo(policy, actorRelation, actor, acpData));
+      const applicablePolicies = acpData.policies.filter((policy) => policyAppliesTo(policy, actorRelation, actor, acpData));
+      const initialAccess = {
+          read: false,
+          append: false,
+          write: false,
+          controlRead: false,
+          controlWrite: false,
+      };
+      // All allowed reading and writing defined in ACR policies
+      // determines whether the `controlRead` and `controlWrite` statuses are `true`.
+      const allowedAcrAccess = applicableAcrPolicies.reduce((acc, policy) => {
+          const allAllowedAccess = Object.assign({}, acc);
+          const allowModes = getAllowModesV1(policy);
+          if (allowModes.read) {
+              allAllowedAccess.controlRead = true;
+          }
+          if (allowModes.write) {
+              allAllowedAccess.controlWrite = true;
+          }
+          return allAllowedAccess;
+      }, initialAccess);
+      // Then allowed reading, appending and writing in regular policies
+      // determines whether the respective status is `true`.
+      const withAllowedAccess = applicablePolicies.reduce((acc, policy) => {
+          const allAllowedAccess = Object.assign({}, acc);
+          const allowModes = getAllowModesV1(policy);
+          if (allowModes.read) {
+              allAllowedAccess.read = true;
+          }
+          if (allowModes.append) {
+              allAllowedAccess.append = true;
+          }
+          if (allowModes.write) {
+              allAllowedAccess.write = true;
+          }
+          return allAllowedAccess;
+      }, allowedAcrAccess);
+      // At this point, everything that has been explicitly allowed is true.
+      // However, it could still be overridden by access that is explicitly denied.
+      // Starting with `controlRead` and `controlWrite`,
+      // by inspecting denied reading and writing defined in the ACR policies.
+      const withAcrDeniedAccess = applicableAcrPolicies.reduce((acc, policy) => {
+          const allDeniedAccess = Object.assign({}, acc);
+          const denyModes = getDenyModesV1(policy);
+          if (denyModes.read === true) {
+              allDeniedAccess.controlRead = false;
+          }
+          if (denyModes.write === true) {
+              allDeniedAccess.controlWrite = false;
+          }
+          return allDeniedAccess;
+      }, withAllowedAccess);
+      // And finally, we set to `false` those access modes that are explicitly denied
+      // in the regular policies:
+      const withDeniedAccess = applicablePolicies.reduce((acc, policy) => {
+          const allDeniedAccess = Object.assign({}, acc);
+          const denyModes = getDenyModesV1(policy);
+          if (denyModes.read === true) {
+              allDeniedAccess.read = false;
+          }
+          if (denyModes.append === true) {
+              allDeniedAccess.append = false;
+          }
+          if (denyModes.write === true) {
+              allDeniedAccess.write = false;
+          }
+          return allDeniedAccess;
+      }, withAcrDeniedAccess);
+      return withDeniedAccess;
+  }
+  /**
+   * Get an overview of what access is defined for a given Agent in a Resource's Access Control Resource.
+   *
+   * This will only return a value if all relevant access is defined in just the Resource's Access
+   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * other Resources, this function will not be able to determine the access relevant to this Agent.
+   *
+   * Additionally, this only considers access given _explicitly_ to the given Agent, i.e. without
+   * additional conditions.
+   *
+   * In other words, this function will generally understand and return the access as set by
+   * [[internal_setAgentAccess]], but not understand more convoluted Policies.
+   *
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @param webId WebID of the Agent you want to get the access for.
+   * @returns What Access modes are granted to the given Agent explicitly, or null if it could not be determined.
+   */
+  function internal_getAgentAccess(acpData, webId) {
+      return internal_getActorAccess(acpData, acp.agent, webId);
+  }
+  /**
+   * Get an overview of what access is defined for a given Group in a Resource's Access Control Resource.
+   *
+   * This will only return a value if all relevant access is defined in just the Resource's Access
+   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * other Resources, this function will not be able to determine the access relevant to this Group.
+   *
+   * Additionally, this only considers access given _explicitly_ to the given Group, i.e. without
+   * additional conditions.
+   *
+   * In other words, this function will generally understand and return the access as set by
+   * [[internal_setGroupAccess]], but not understand more convoluted Policies.
+   *
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @param groupUrl URL of the Group you want to get the access for.
+   * @returns What Access modes are granted to the given Group explicitly, or null if it could not be determined.
+   */
+  function internal_getGroupAccess(acpData, groupUrl) {
+      return internal_getActorAccess(acpData, acp.group, groupUrl);
+  }
+  /**
+   * Get an overview of what access is defined for everybody in a Resource's Access Control Resource.
+   *
+   * This will only return a value if all relevant access is defined in just the Resource's Access
+   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * other Resources, this function will not be able to determine the access relevant to everybody.
+   *
+   * Additionally, this only considers access given _explicitly_ to everybody, i.e. without
+   * additional conditions.
+   *
+   * In other words, this function will generally understand and return the access as set by
+   * [[internal_setPublicAccess]], but not understand more convoluted Policies.
+   *
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @returns What Access modes are granted to everyone explicitly, or null if it could not be determined.
+   */
+  function internal_getPublicAccess(acpData) {
+      return internal_getActorAccess(acpData, acp.agent, acp.PublicAgent);
+  }
+  function policyAppliesTo(policy, actorRelation, actor, acpData) {
+      const allowModes = getIriAll(policy, acp.allow);
+      const denyModes = getIriAll(policy, acp.deny);
+      if (allowModes.length + denyModes.length === 0) {
+          // A Policy that does not specify access modes does not do anything:
+          return false;
+      }
+      // Note: the non-null assertions (`!`) here should be valid because
+      //       the caller of `policyAppliesTo` should already have validated that
+      //       the return value of internal_getPoliciesAndRules() did not have any
+      //       inaccessible URLs, so we should be able to find every Rule.
+      const allOfRules = getAllOfRuleUrlAll(policy).map((ruleUrl) => acpData.rules.find((rule) => asIri(rule) === ruleUrl));
+      const anyOfRules = getAnyOfRuleUrlAll(policy).map((ruleUrl) => acpData.rules.find((rule) => asIri(rule) === ruleUrl));
+      const noneOfRules = getNoneOfRuleUrlAll(policy).map((ruleUrl) => acpData.rules.find((rule) => asIri(rule) === ruleUrl));
+      // We assume that this Policy applies if this specific actor is mentioned
+      // and no further restrictions are in place.
+      // (In other words, the Policy may apply to others *in addition to* this
+      // actor, but if it applies to this actor *unless* some other condition holds,
+      // we cannot be sure whether it will apply to this actor.)
+      // This means that:
+      return (
+      // Every existing allOf Rule explicitly applies explicitly to this given actor:
+      allOfRules.every((rule) => ruleAppliesTo(rule, actorRelation, actor)) &&
+          // If there are anyOf Rules, at least one applies explicitly to this actor:
+          (anyOfRules.length === 0 ||
+              anyOfRules.some((rule) => ruleAppliesTo(rule, actorRelation, actor))) &&
+          // No further restrictions are in place that make this sometimes not apply
+          // to the given actor:
+          noneOfRules.length === 0);
+  }
+  function policyConflictsWith(policy, otherAccess) {
+      const allowModes = getIriAll(policy, acp.allow);
+      const denyModes = getIriAll(policy, acp.deny);
+      return ((otherAccess.read === true && denyModes.includes(acp.Read)) ||
+          (otherAccess.read === false &&
+              allowModes.includes(acp.Read) &&
+              !denyModes.includes(acp.Read)) ||
+          (otherAccess.append === true && denyModes.includes(acp.Append)) ||
+          (otherAccess.append === false &&
+              allowModes.includes(acp.Append) &&
+              !denyModes.includes(acp.Append)) ||
+          (otherAccess.write === true && denyModes.includes(acp.Write)) ||
+          (otherAccess.write === false &&
+              allowModes.includes(acp.Write) &&
+              !denyModes.includes(acp.Write)));
+  }
+  function ruleAppliesTo(rule, actorRelation, actor) {
+      // A Rule that does not list *any* actor matches for everyone:
+      let isEmpty = true;
+      knownActorRelations.forEach((knownActorRelation) => {
+          isEmpty && (isEmpty = getIri(rule, knownActorRelation) === null);
+      });
+      return isEmpty || getIriAll(rule, actorRelation).includes(actor);
+  }
+  /**
+   * Get a set of all actors mentioned in an ACR by active Rules (i.e. that are
+   * referenced by Policies referenced by the ACR Control, and therefore that
+   * effectively apply).
+   *
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @param actorRelation
+   */
+  function internal_findActorAll(acpData, actorRelation) {
+      const actors = new Set();
+      // This code could be prettier using flat(), which isn't supported by nodeJS 10.
+      // If you read this comment after April 2021, feel free to refactor.
+      acpData.rules.forEach((rule) => {
+          getIriAll(rule, actorRelation)
+              .filter((iri) => ![
+              acp.PublicAgent,
+              acp.CreatorAgent,
+              acp.AuthenticatedAgent,
+          ].includes(iri) || actorRelation != acp.agent)
+              .forEach((iri) => actors.add(iri));
+      });
+      return actors;
+  }
+  /**
+   * Iterate through all the actors active for an ACR, and list all of their access.
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @param actorRelation The type of actor we want to list access for
+   * @returns A map with each actor access indexed by their URL, or null if some
+   * external policies are referenced.
+   */
+  function internal_getActorAccessAll(acpData, actorRelation) {
+      if (acpData.inaccessibleUrls.length > 0) {
+          // If we can't see all access data,
+          // we can't reliably determine what access actors of the given type have:
+          return null;
+      }
+      const result = {};
+      const actors = internal_findActorAll(acpData, actorRelation);
+      actors.forEach((iri) => {
+          // The type assertion holds, because if internal_getActorAccess were null,
+          // we would have returned {} already.
+          const access = internal_getActorAccess(acpData, actorRelation, iri);
+          result[iri] = access;
+      });
+      return result;
+  }
+  /**
+   * Get an overview of what access are defined for all Groups in a Resource's Access Control Resource.
+   *
+   * This will only return a value if all relevant access is defined in just the Resource's Access
+   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * other Resources, this function will not be able to determine the access relevant to the mentionned
+   * Groups.
+   *
+   * Additionally, this only considers access given _explicitly_ to individual Groups, i.e. without
+   * additional conditions.
+   *
+   * In other words, this function will generally understand and return the access as set by
+   * [[internal_setAgentAccess]], but not understand more convoluted Policies.
+   *
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @returns A map with each Group's access indexed by their URL, or null if some
+   * external policies are referenced.
+   */
+  function internal_getGroupAccessAll(acpData) {
+      return internal_getActorAccessAll(acpData, acp.group);
+  }
+  /**
+   * Get an overview of what access are defined for all Agents in a Resource's Access Control Resource.
+   *
+   * This will only return a value if all relevant access is defined in just the Resource's Access
+   * Control Resource; in other words, if an Access Policy or Access Rule applies that is re-used for
+   * other Resources, this function will not be able to determine the access relevant to the mentionned
+   * Agents.
+   *
+   * Additionally, this only considers access given _explicitly_ to individual Agents, i.e. without
+   * additional conditions.
+   *
+   * In other words, this function will generally understand and return the access as set by
+   * [[internal_setAgentAccess]], but not understand more convoluted Policies.
+   *
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @returns A map with each Agent's access indexed by their WebID, or null if some
+   * external policies are referenced.
+   */
+  function internal_getAgentAccessAll(acpData) {
+      return internal_getActorAccessAll(acpData, acp.agent);
+  }
+  /**
+   * Set access to a Resource for a specific actor.
+   *
+   * This function adds the relevant Access Control Policies and Rules to a
+   * Resource's Access Control Resource to define the given access for the given
+   * actor specifically. In other words, it can, for example, add Policies that
+   * give a particular Group Read access to the Resource. However, if other
+   * Policies specify that everyone in that Group is *denied* Read access *except*
+   * for a particular Agent, then that will be left intact.
+   * This means that, unless *only* this module's functions are used to manipulate
+   * access to this Resource, the set access might not be equal to the effective
+   * access for an agent matching the given actor.
+   *
+   * There are a number of preconditions that have to be fulfilled for this
+   * function to work:
+   * - Access to the Resource is determined via an Access Control Resource.
+   * - The Resource's Access Control Resource does not refer to (Policies or Rules
+   *   in) other Resources.
+   * - The current user has access to the Resource's Access Control Resource.
+   *
+   * If those conditions do not hold, this function will return `null`.
+   *
+   * Additionally, take note that the given access will only be applied to the
+   * given Resource; if that Resource is a Container, access will have to be set
+   * for its contained Resources independently.
+   *
+   * @param resource Resource that was fetched together with its linked Access Control Resource.
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @param actorRelation What type of actor (e.g. acp:agent or acp:group) you want to set the access for.
+   * @param actor Which instance of the given actor type you want to set the access for.
+   * @param access What access (read, append, write, controlRead, controlWrite) to set for the given actor. `true` to allow, `false` to deny, and `undefined` to leave unchanged.
+   * @returns The Resource with the updated Access Control Resource attached, if updated successfully, or `null` if not.
+   */
+  function internal_setActorAccess(resource, acpData, actorRelation, actor, access) {
+      var _a, _b, _c, _d, _e;
+      if (!hasAccessibleAcr(resource) || acpData.inaccessibleUrls.length > 0) {
+          return null;
+      }
+      // Get the access that currently applies to the given actor
+      const existingAccess = internal_getActorAccess(acpData, actorRelation, actor);
+      /* istanbul ignore if: It returns null if the ACR has inaccessible Policies, which should happen since we already check for that above. */
+      if (existingAccess === null) {
+          return null;
+      }
+      // Get all Policies that apply specifically to the given actor
+      const applicableAcrPolicies = acpData.acrPolicies.filter((policy) => policyAppliesTo(policy, actorRelation, actor, acpData));
+      const applicablePolicies = acpData.policies.filter((policy) => policyAppliesTo(policy, actorRelation, actor, acpData));
+      // We only need to override Policies that define access other than what we want:
+      const conflictingAcrPolicies = applicableAcrPolicies.filter((policy) => policyConflictsWith(policy, {
+          read: access.controlRead,
+          write: access.controlWrite,
+      }));
+      const conflictingPolicies = applicablePolicies.filter((policy) => policyConflictsWith(policy, {
+          read: access.read,
+          append: access.append,
+          write: access.write,
+      }));
+      // For every Policy that applies specifically to the given Actor, but _also_
+      // to another actor (i.e. that applies using an anyOf Rule, or a Rule that
+      // mentions both the given and another actor)...
+      const otherActorAcrPolicies = conflictingAcrPolicies.filter((acrPolicy) => policyHasOtherActors(acrPolicy, actorRelation, actor, acpData));
+      const otherActorPolicies = conflictingPolicies.filter((policy) => policyHasOtherActors(policy, actorRelation, actor, acpData));
+      // ...check what access the current actor would have if we removed them...
+      const acpDataWithPoliciesExcluded = Object.assign(Object.assign({}, acpData), { acrPolicies: acpData.acrPolicies.filter((acrPolicy) => !otherActorAcrPolicies.includes(acrPolicy)), policies: acpData.policies.filter((policy) => !otherActorPolicies.includes(policy)) });
+      const remainingAccess = internal_getActorAccess(acpDataWithPoliciesExcluded, actorRelation, actor);
+      /* istanbul ignore if: It returns null if the ACR has inaccessible Policies, which should happen since we already check for that at the start. */
+      if (remainingAccess === null) {
+          return null;
+      }
+      // ...add copies of those Policies and their Rules, but excluding the given actor...
+      let updatedResource = resource;
+      otherActorAcrPolicies.forEach((acrPolicy) => {
+          const [policyCopy, ruleCopies] = copyPolicyExcludingActor(acrPolicy, resource, acpData, actorRelation, actor);
+          updatedResource = setResourceAcrPolicy(updatedResource, policyCopy);
+          updatedResource = ruleCopies.reduce(setResourceRule, updatedResource);
+      });
+      otherActorPolicies.forEach((policy) => {
+          const [policyCopy, ruleCopies] = copyPolicyExcludingActor(policy, resource, acpData, actorRelation, actor);
+          updatedResource = setResourcePolicy(updatedResource, policyCopy);
+          updatedResource = ruleCopies.reduce(setResourceRule, updatedResource);
+      });
+      // ...add a new Policy that applies the given access,
+      // and the previously applying access for access modes that were undefined...
+      const newRuleName = `rule_${encodeURIComponent(`${actorRelation}_${actor}`)}`;
+      let newRule = createResourceRuleFor(resource, newRuleName);
+      newRule = setIri(newRule, actorRelation, actor);
+      const newControlReadAccess = (_a = access.controlRead) !== null && _a !== void 0 ? _a : existingAccess.controlRead;
+      const newControlWriteAccess = (_b = access.controlWrite) !== null && _b !== void 0 ? _b : existingAccess.controlWrite;
+      let acrPoliciesToUnapply = otherActorAcrPolicies;
+      // Only replace existing Policies if the defined access actually changes:
+      if (newControlReadAccess !== remainingAccess.controlRead ||
+          newControlWriteAccess !== remainingAccess.controlWrite) {
+          const newAcrPolicyName = `acr_policy` +
+              `_${encodeURIComponent(`${actorRelation}_${actor}`)}` +
+              `_${Date.now()}_${Math.random()}`;
+          let newAcrPolicy = createResourcePolicyFor(resource, newAcrPolicyName);
+          newAcrPolicy = setAllowModesV1(newAcrPolicy, {
+              read: newControlReadAccess === true,
+              append: false,
+              write: newControlWriteAccess === true,
+          });
+          newAcrPolicy = addIri(newAcrPolicy, acp.allOf, newRule);
+          updatedResource = setResourceAcrPolicy(updatedResource, newAcrPolicy);
+          updatedResource = setResourceRule(updatedResource, newRule);
+          // If we don't have to set new access, we only need to unapply the
+          // ACR Policies that applied to both the given actor and other actors
+          // (because they have been replaced by clones not mentioning the given
+          // actor). Hence `policiesToUnApply` is initialised to `otherActorPolicies`.
+          // However, if we're in this if branch, that means we also had to replace
+          // Policies that defined access for just this actor, so we'll have to remove
+          // all Policies mentioning this actor:
+          acrPoliciesToUnapply = conflictingAcrPolicies;
+      }
+      const newReadAccess = (_c = access.read) !== null && _c !== void 0 ? _c : existingAccess.read;
+      const newAppendAccess = (_d = access.append) !== null && _d !== void 0 ? _d : existingAccess.append;
+      const newWriteAccess = (_e = access.write) !== null && _e !== void 0 ? _e : existingAccess.write;
+      let policiesToUnapply = otherActorPolicies;
+      // Only replace existing Policies if the defined access actually changes:
+      if (newReadAccess !== remainingAccess.read ||
+          newAppendAccess !== remainingAccess.append ||
+          newWriteAccess !== remainingAccess.write) {
+          const newPolicyName = `policy` +
+              `_${encodeURIComponent(`${actorRelation}_${actor}`)}` +
+              `_${Date.now()}_${Math.random()}`;
+          let newPolicy = createResourcePolicyFor(resource, newPolicyName);
+          newPolicy = setAllowModesV1(newPolicy, {
+              read: newReadAccess === true,
+              append: newAppendAccess === true,
+              write: newWriteAccess === true,
+          });
+          newPolicy = addIri(newPolicy, acp.allOf, newRule);
+          updatedResource = setResourcePolicy(updatedResource, newPolicy);
+          updatedResource = setResourceRule(updatedResource, newRule);
+          // If we don't have to set new access, we only need to unapply the
+          // Policies that applied to both the given actor and other actors (because
+          // they have been replaced by clones not mentioning the given actor). Hence
+          // `policiesToUnApply` is initialised to `otherActorPolicies`.
+          // However, if we're in this if branch, that means we also had to replace
+          // Policies that defined access for just this actor, so we'll have to remove
+          // all Policies mentioning this actor:
+          policiesToUnapply = conflictingPolicies;
+      }
+      // ...then remove existing Policy URLs that mentioned both the given actor
+      // and other actors from the given Resource and apply the new ones (but do not
+      // remove the actual old Policies - they might still apply to other Resources!).
+      acrPoliciesToUnapply.forEach((previouslyApplicableAcrPolicy) => {
+          updatedResource = removeAcrPolicyUrl(updatedResource, asIri(previouslyApplicableAcrPolicy));
+      });
+      policiesToUnapply.forEach((previouslyApplicablePolicy) => {
+          updatedResource = removePolicyUrl(updatedResource, asIri(previouslyApplicablePolicy));
+      });
+      return updatedResource;
+  }
+  /**
+   * Set access to a Resource for a specific Agent.
+   *
+   * This function adds the relevant Access Control Policies and Rules to a
+   * Resource's Access Control Resource to define the given access for the given
+   * Agent specifically. In other words, it can, for example, add Policies that
+   * give a particular Agent Read access to the Resource. However, if other
+   * Policies specify that that Agent is *denied* Read access *except* if they're
+   * in a particular Group, then that will be left intact.
+   * This means that, unless *only* this function is used to manipulate access to
+   * this Resource, the set access might not be equal to the effective access for
+   * the given Agent.
+   *
+   * There are a number of preconditions that have to be fulfilled for this
+   * function to work:
+   * - Access to the Resource is determined via an Access Control Resource.
+   * - The Resource's Access Control Resource does not refer to (Policies or Rules
+   *   in) other Resources.
+   * - The current user has access to the Resource's Access Control Resource.
+   *
+   * If those conditions do not hold, this function will return `null`.
+   *
+   * Additionally, take note that the given access will only be applied to the
+   * given Resource; if that Resource is a Container, access will have to be set
+   * for its contained Resources independently.
+   *
+   * @param resource Resource that was fetched together with its linked Access Control Resource.
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @param webId Which Agent you want to set the access for.
+   * @param access What access (read, append, write, controlRead, controlWrite) to set for the given Agent. `true` to allow, `false` to deny, and `undefined` to leave unchanged.
+   * @returns The Resource with the updated Access Control Resource attached, if updated successfully, or `null` if not.
+   */
+  function internal_setAgentAccess(resource, acpData, webId, access) {
+      return internal_setActorAccess(resource, acpData, acp.agent, webId, access);
+  }
+  /**
+   * Set access to a Resource for a specific Group.
+   *
+   * This function adds the relevant Access Control Policies and Rules to a
+   * Resource's Access Control Resource to define the given access for the given
+   * Group specifically. In other words, it can, for example, add Policies that
+   * give a particular Group Read access to the Resource. However, if other
+   * Policies specify that it is *denied* Read access *except* if they're a
+   * particular Agent, then that will be left intact.
+   * This means that, unless *only* this module's functions are used to manipulate
+   * access to this Resource, the set access might not be equal to the effective
+   * access for Agents in the given Group.
+   *
+   * There are a number of preconditions that have to be fulfilled for this
+   * function to work:
+   * - Access to the Resource is determined via an Access Control Resource.
+   * - The Resource's Access Control Resource does not refer to (Policies or Rules
+   *   in) other Resources.
+   * - The current user has access to the Resource's Access Control Resource.
+   *
+   * If those conditions do not hold, this function will return `null`.
+   *
+   * Additionally, take note that the given access will only be applied to the
+   * given Resource; if that Resource is a Container, access will have to be set
+   * for its contained Resources independently.
+   *
+   * @param resource Resource that was fetched together with its linked Access Control Resource.
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @param groupUrl Which Group you want to set the access for.
+   * @param access What access (read, append, write, controlRead, controlWrite) to set for the given Group. `true` to allow, `false` to deny, and `undefined` to leave unchanged.
+   * @returns The Resource with the updated Access Control Resource attached, if updated successfully, or `null` if not.
+   */
+  function internal_setGroupAccess(resource, acpData, groupUrl, access) {
+      return internal_setActorAccess(resource, acpData, acp.group, groupUrl, access);
+  }
+  /**
+   * Set access to a Resource for everybody.
+   *
+   * This function adds the relevant Access Control Policies and Rules to a
+   * Resource's Access Control Resource to define the given access for everybody
+   * specifically. In other words, it can, for example, add Policies that
+   * give everybody Read access to the Resource. However, if other
+   * Policies specify that everybody is *denied* Read access *except* if they're
+   * in a particular Group, then that will be left intact.
+   * This means that, unless *only* this module's functions are used to manipulate
+   * access to this Resource, the set access might not be equal to the effective
+   * access for a particular Agent.
+   *
+   * There are a number of preconditions that have to be fulfilled for this
+   * function to work:
+   * - Access to the Resource is determined via an Access Control Resource.
+   * - The Resource's Access Control Resource does not refer to (Policies or Rules
+   *   in) other Resources.
+   * - The current user has access to the Resource's Access Control Resource.
+   *
+   * If those conditions do not hold, this function will return `null`.
+   *
+   * Additionally, take note that the given access will only be applied to the
+   * given Resource; if that Resource is a Container, access will have to be set
+   * for its contained Resources independently.
+   *
+   * @param resource Resource that was fetched together with its linked Access Control Resource.
+   * @param acpData All Access Control Policies and Rules that apply to a particular Resource.
+   * @param access What access (read, append, write, controlRead, controlWrite) to set for everybody. `true` to allow, `false` to deny, and `undefined` to leave unchanged.
+   * @returns The Resource with the updated Access Control Resource attached, if updated successfully, or `null` if not.
+   */
+  function internal_setPublicAccess(resource, acpData, access) {
+      return internal_setActorAccess(resource, acpData, acp.agent, acp.PublicAgent, access);
+  }
+  function policyHasOtherActors(policy, actorRelation, actor, acpData) {
+      // Note: the non-null assertions (`!`) here should be valid because
+      //       the caller of `policyHasOtherActors` should already have validated
+      //       that the return value of internal_getPoliciesAndRules() did not have
+      //       any inaccessible URLs, so we should be able to find every Rule.
+      const allOfRules = getIriAll(policy, acp.allOf).map((ruleUrl) => acpData.rules.find((rule) => asIri(rule) === ruleUrl));
+      const allOfRulesHaveOtherActors = allOfRules.some((rule) => {
+          return ruleHasOtherActors(rule, actorRelation, actor);
+      });
+      const anyOfRules = getIriAll(policy, acp.anyOf).map((ruleUrl) => acpData.rules.find((rule) => asIri(rule) === ruleUrl));
+      const anyOfRulesHaveOtherActors = anyOfRules.some((rule) => {
+          return ruleHasOtherActors(rule, actorRelation, actor);
+      });
+      /* istanbul ignore next This function only gets called after policyAppliesTo, which already filters out all noneOf Rules */
+      const noneOfRules = getIriAll(policy, acp.noneOf).map((ruleUrl) => acpData.rules.find((rule) => asIri(rule) === ruleUrl));
+      /* istanbul ignore next This function only gets called after policyAppliesTo, which already filters out all noneOf Rules */
+      const noneOfRulesHaveOtherActors = noneOfRules.some((rule) => {
+          return ruleHasOtherActors(rule, actorRelation, actor);
+      });
+      return (allOfRulesHaveOtherActors ||
+          anyOfRulesHaveOtherActors ||
+          noneOfRulesHaveOtherActors);
+  }
+  function ruleHasOtherActors(rule, actorRelation, actor) {
+      const otherActors = [];
+      knownActorRelations.forEach((knownActorRelation) => {
+          const otherActorsWithThisRelation = getIriAll(rule, knownActorRelation).filter((applicableActor) => applicableActor !== actor || knownActorRelation !== actorRelation);
+          // Unfortunately Node 10 does not support `.flat()` yet, hence the use of `push`:
+          otherActors.push(...otherActorsWithThisRelation);
+      });
+      return otherActors.length > 0;
+  }
+  function copyPolicyExcludingActor(inputPolicy, resourceWithAcr, acpData, actorRelationToExclude, actorToExclude) {
+      const newIriSuffix = "_copy_without" +
+          `_${encodeURIComponent(actorRelationToExclude)}_${actorToExclude}` +
+          `_${Date.now()}_${Math.random()}`;
+      // Create new Rules for the Policy, excluding the given Actor
+      const newAllOfRules = copyRulesExcludingActor(getIriAll(inputPolicy, acp.allOf), resourceWithAcr, acpData, newIriSuffix, actorRelationToExclude, actorToExclude);
+      const newAnyOfRules = copyRulesExcludingActor(getIriAll(inputPolicy, acp.anyOf), resourceWithAcr, acpData, newIriSuffix, actorRelationToExclude, actorToExclude);
+      const newNoneOfRules = copyRulesExcludingActor(getIriAll(inputPolicy, acp.noneOf), resourceWithAcr, acpData, newIriSuffix, actorRelationToExclude, actorToExclude);
+      // Create a new Policy with the new Rules
+      let newPolicy = createResourcePolicyFor(resourceWithAcr, encodeURI(asIri(inputPolicy)) + newIriSuffix);
+      getIriAll(inputPolicy, acp.allow).forEach((allowMode) => {
+          newPolicy = addIri(newPolicy, acp.allow, allowMode);
+      });
+      getIriAll(inputPolicy, acp.deny).forEach((denyMode) => {
+          newPolicy = addIri(newPolicy, acp.deny, denyMode);
+      });
+      newAllOfRules.forEach((newRule) => {
+          newPolicy = addIri(newPolicy, acp.allOf, newRule);
+      });
+      newAnyOfRules.forEach((newRule) => {
+          newPolicy = addIri(newPolicy, acp.anyOf, newRule);
+      });
+      /* istanbul ignore next Policies listing noneOf Rules are left alone (because they do not unambiguously apply to the given actor always), so there will usually not be any noneOf Rules to copy. */
+      newNoneOfRules.forEach((newRule) => {
+          newPolicy = addIri(newPolicy, acp.noneOf, newRule);
+      });
+      return [
+          newPolicy,
+          newAllOfRules.concat(newAnyOfRules).concat(newNoneOfRules),
+      ];
+  }
+  /** Creates clones of all the Rules identified by `ruleIris` in `acpData`, excluding the given Actor */
+  function copyRulesExcludingActor(ruleIris, resourceWithAcr, acpData, iriSuffix, actorRelationToExclude, actorToExclude) {
+      return ruleIris
+          .map((ruleIri) => {
+          const rule = acpData.rules.find((rule) => asIri(rule) === ruleIri);
+          /* istanbul ignore if: getPoliciesAndRules should already have fetched all referenced Rules, so this should never be true: */
+          if (typeof rule === "undefined") {
+              return null;
+          }
+          let newRule = createResourceRuleFor(resourceWithAcr, encodeURI(asIri(rule)) + iriSuffix);
+          let listsOtherActors = false;
+          knownActorRelations.forEach((knownActorRelation) => {
+              getIriAll(rule, knownActorRelation).forEach((targetActor) => {
+                  if (knownActorRelation === actorRelationToExclude &&
+                      targetActor === actorToExclude) {
+                      return;
+                  }
+                  listsOtherActors = true;
+                  newRule = addIri(newRule, knownActorRelation, targetActor);
+              });
+          });
+          return listsOtherActors ? newRule : null;
+      })
+          .filter(isNotNull);
+  }
+  function isNotNull(value) {
+      return value !== null;
+  }
+  async function internal_getPoliciesAndRules(resource, options = internal_defaultFetchOptions) {
+      const acrPolicyUrls = getAcrPolicyUrlAll(resource);
+      const policyUrls = getPolicyUrlAll(resource);
+      const allPolicyResourceUrls = getResourceUrls(acrPolicyUrls).concat(getResourceUrls(policyUrls));
+      const policyResources = await getResources(allPolicyResourceUrls, options);
+      const acrPolicies = getThingsFromResources(acrPolicyUrls, policyResources).filter(isNotNull);
+      const policies = getThingsFromResources(policyUrls, policyResources).filter(isNotNull);
+      const ruleUrlSet = new Set();
+      acrPolicies.forEach((acrPolicy) => {
+          const referencedRuleUrls = getReferencedRuleUrls(acrPolicy);
+          referencedRuleUrls.forEach((ruleUrl) => {
+              ruleUrlSet.add(ruleUrl);
+          });
+      });
+      policies.forEach((policy) => {
+          const referencedRuleUrls = getReferencedRuleUrls(policy);
+          referencedRuleUrls.forEach((ruleUrl) => {
+              ruleUrlSet.add(ruleUrl);
+          });
+      });
+      const ruleUrls = Array.from(ruleUrlSet);
+      const ruleResourceUrls = ruleUrls.map((ruleUrl) => getResourceUrl(ruleUrl));
+      const unfetchedRuleResourceUrls = ruleResourceUrls.filter((ruleResourceUrl) => !allPolicyResourceUrls.includes(ruleResourceUrl));
+      const ruleResources = await getResources(unfetchedRuleResourceUrls, options);
+      const allResources = Object.assign(Object.assign({}, policyResources), ruleResources);
+      const rules = getThingsFromResources(ruleUrls, allResources).filter(isNotNull);
+      const inaccessibleUrls = Object.keys(allResources).filter((resourceUrl) => allResources[resourceUrl] === null);
+      return {
+          inaccessibleUrls: inaccessibleUrls,
+          acrPolicies: acrPolicies,
+          policies: policies,
+          rules: rules,
+      };
+  }
+  function getResourceUrl(thingUrl) {
+      const thingUrlObject = new URL(thingUrl);
+      thingUrlObject.hash = "";
+      return thingUrlObject.href;
+  }
+  function getResourceUrls(thingUrls) {
+      const resourceUrls = [];
+      thingUrls.forEach((thingUrl) => {
+          const resourceUrl = getResourceUrl(thingUrl);
+          if (!resourceUrls.includes(resourceUrl)) {
+              resourceUrls.push(resourceUrl);
+          }
+      });
+      return resourceUrls;
+  }
+  async function getResources(resourceUrls, options) {
+      const uniqueResourceUrls = Array.from(new Set(resourceUrls));
+      const resources = {};
+      await Promise.all(uniqueResourceUrls.map(async (resourceUrl) => {
+          try {
+              const resource = await getSolidDataset(resourceUrl, options);
+              resources[resourceUrl] = resource;
+          }
+          catch (e) {
+              resources[resourceUrl] = null;
+          }
+      }));
+      return resources;
+  }
+  function getThingsFromResources(thingUrls, resources) {
+      return thingUrls.map((thingUrl) => {
+          const resourceUrl = getResourceUrl(thingUrl);
+          const resource = resources[resourceUrl];
+          if (!resource) {
+              return null;
+          }
+          return getThing(resource, thingUrl);
+      });
+  }
+  function getReferencedRuleUrls(policy) {
+      return getAllOfRuleUrlAll(policy)
+          .concat(getAnyOfRuleUrlAll(policy))
+          .concat(getNoneOfRuleUrlAll(policy));
+  }
+
+  /**
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+  /**
+   * Get an overview of what access is defined for a given Agent.
+   *
+   * This function works with Solid Pods that implement either the Web Access
+   * Control spec or the Access Control Policies proposal, with some caveats:
+   *
+   * - If access to the given Resource has been set using anything other than the
+   *   functions in this module, it is possible that it has been set in a way that
+   *   prevents this function from reliably reading access, in which case it will
+   *   resolve to `null`.
+   * - It will only return access specified explicitly for the given Agent. If
+   *   additional restrictions are set up to apply to the given Agent in a
+   *   particular situation, those will not be reflected in the return value of
+   *   this function.
+   * - It will only return access specified explicitly for the given Resource.
+   *   In other words, if the Resource is a Container, the returned Access may not
+   *   apply to contained Resources.
+   * - If the current user does not have permission to view access for the given
+   *   Resource, this function will resolve to `null`.
+   *
+   * @param resourceUrl URL of the Resource you want to read the access for.
+   * @param webId WebID of the Agent you want to get the access for.
+   * @since 1.5.0
+   */
+  async function getAgentAccess$1(resourceUrl, webId, options = internal_defaultFetchOptions) {
+      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
+      if (hasAccessibleAcr(resourceInfo)) {
+          const acpData = await internal_getPoliciesAndRules(resourceInfo, options);
+          return internal_getAgentAccess(acpData, webId);
+      }
+      if (hasAccessibleAcl(resourceInfo)) {
+          return await getAgentAccess$2(resourceInfo, webId, options);
+      }
+      return null;
+  }
+  /**
+   * Set access to a Resource for a specific Agent.
+   *
+   * This function works with Solid Pods that implement either the Web Access
+   * Control spec or the Access Control Policies proposal, with some caveats:
+   *
+   * - If access to the given Resource has been set using anything other than the
+   *   functions in this module, it is possible that it has been set in a way that
+   *   prevents this function from reliably setting access, in which case it will
+   *   resolve to `null`.
+   * - It will only set access explicitly for the given Agent. In other words,
+   *   additional restrictions could be present that further restrict or loosen
+   *   what access the given Agent has in particular circumstances.
+   * - The provided access will only apply to the given Resource. In other words,
+   *   if the Resource is a Container, the configured Access may not apply to
+   *   contained Resources.
+   * - If the current user does not have permission to view or change access for
+   *   the given Resource, this function will resolve to `null`.
+   *
+   * Additionally, two caveats apply to users with a Pod server that uses WAC:
+   * - If the Resource did not have an ACL yet, a new one will be initialised.
+   *   This means that changes to the ACL of a parent Container can no longer
+   *   affect access people have to this Resource, although existing access will
+   *   be preserved.
+   * - Setting different values for `controlRead` and `controlWrite` is not
+   *   supported, and **will throw an error**. If you expect (some of) your users
+   *   to have Pods implementing WAC, be sure to pass the same value for both.
+   *
+   * @param resourceUrl URL of the Resource you want to change the Agent's access to.
+   * @param webId WebID of the Agent you want to set access for.
+   * @param access What access permissions you want to set for the given Agent to the given Resource. Possible properties are `read`, `append`, `write`, `controlRead` and `controlWrite`: set to `true` to allow, to `false` to stop allowing, or `undefined` to leave unchanged. Take note that `controlRead` and `controlWrite` can not have distinct values for a Pod server implementing Web Access Control; trying this will throw an error.
+   * @returns What access has been set for the given Agent explicitly.
+   * @since 1.5.0
+   */
+  async function setAgentAccess$1(resourceUrl, webId, access, options = internal_defaultFetchOptions) {
+      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
+      if (hasAccessibleAcr(resourceInfo)) {
+          const acpData = await internal_getPoliciesAndRules(resourceInfo, options);
+          const updatedResource = internal_setAgentAccess(resourceInfo, acpData, webId, access);
+          if (updatedResource) {
+              try {
+                  await saveAcrFor(updatedResource, options);
+                  return await getAgentAccess$1(resourceUrl, webId, options);
+              }
+              catch (e) {
+                  return null;
+              }
+          }
+          return null;
+      }
+      if (hasAccessibleAcl(resourceInfo)) {
+          if (access.controlRead != access.controlWrite) {
+              throw new Error(`When setting access for a Resource in a Pod implementing Web Access Control (i.e. [${getSourceIri(resourceInfo)}]), ` + "`controlRead` and `controlWrite` should have the same value.");
+          }
+          const wacAccess = access;
+          await setAgentResourceAccess(resourceInfo, webId, wacAccess, options);
+          return await getAgentAccess$2(resourceInfo, webId, options);
+      }
+      return null;
+  }
+  /**
+   * Get an overview of what access is defined for all Agents with respect to a given
+   * Resource.
+   *
+   * This function works with Solid Pods that implement either the Web Access
+   * Control spec or the Access Control Policies proposal, with some caveats:
+   *
+   * - If access to the given Resource has been set using anything other than the
+   *   functions in this module, it is possible that it has been set in a way that
+   *   prevents this function from reliably reading access, in which case it will
+   *   resolve to `null`.
+   * - It will only return access specified explicitly for the returned Agents. If
+   *   additional restrictions are set up to apply to the listed Agents in a
+   *   particular situation, those will not be reflected in the return value of
+   *   this function.
+   * - It will only return access specified explicitly for the given Resource.
+   *   In other words, if the Resource is a Container, the returned Access may not
+   *   apply to contained Resources.
+   * - If the current user does not have permission to view access for the given
+   *   Resource, this function will resolve to `null`.
+   *
+   * @param resourceUrl URL of the Resource you want to read the access for.
+   * @returns The access information to the Resource, grouped by Agent.
+   * @since 1.5.0
+   */
+  async function getAgentAccessAll$1(resourceUrl, options = internal_defaultFetchOptions) {
+      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
+      if (hasAccessibleAcr(resourceInfo)) {
+          const acpData = await internal_getPoliciesAndRules(resourceInfo, options);
+          return internal_getAgentAccessAll(acpData);
+      }
+      if (hasAccessibleAcl(resourceInfo)) {
+          return await getAgentAccessAll$2(resourceInfo, options);
+      }
+      return null;
+  }
+  /**
+   * Get an overview of what access is defined for a given Group.
+   *
+   * This function works with Solid Pods that implement either the Web Access
+   * Control spec or the Access Control Policies proposal, with some caveats:
+   *
+   * - If access to the given Resource has been set using anything other than the
+   *   functions in this module, it is possible that it has been set in a way that
+   *   prevents this function from reliably reading access, in which case it will
+   *   resolve to `null`.
+   * - It will only return access specified explicitly for the given Group. If
+   *   additional restrictions are set up to apply to the given Group in a
+   *   particular situation, those will not be reflected in the return value of
+   *   this function.
+   * - It will only return access specified explicitly for the given Resource.
+   *   In other words, if the Resource is a Container, the returned Access may not
+   *   apply to contained Resources.
+   * - If the current user does not have permission to view access for the given
+   *   Resource, this function will resolve to `null`.
+   *
+   * @param resourceUrl URL of the Resource you want to read the access for.
+   * @param webId WebID of the Group you want to get the access for.
+   * @since 1.5.0
+   * @deprecated Access Control Policies will no longer support vcard:Group. Use the mechanism-specific access API's if you want to define access for groups of people.
+   */
+  async function getGroupAccess(resourceUrl, webId, options = internal_defaultFetchOptions) {
+      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
+      if (hasAccessibleAcr(resourceInfo)) {
+          const acpData = await internal_getPoliciesAndRules(resourceInfo, options);
+          return internal_getGroupAccess(acpData, webId);
+      }
+      if (hasAccessibleAcl(resourceInfo)) {
+          return await getGroupAccess$1(resourceInfo, webId, options);
+      }
+      return null;
+  }
+  /**
+   * Get an overview of what access is defined for all Groups with respect to a given
+   * Resource.
+   *
+   * This function works with Solid Pods that implement either the Web Access
+   * Control spec or the Access Control Policies proposal, with some caveats:
+   *
+   * - If access to the given Resource has been set using anything other than the
+   *   functions in this module, it is possible that it has been set in a way that
+   *   prevents this function from reliably reading access, in which case it will
+   *   resolve to `null`.
+   * - It will only return access specified explicitly for the returned Groups. If
+   *   additional restrictions are set up to apply to the listed Groups in a
+   *   particular situation, those will not be reflected in the return value of
+   *   this function.
+   * - It will only return access specified explicitly for the given Resource.
+   *   In other words, if the Resource is a Container, the returned Access may not
+   *   apply to contained Resources.
+   * - If the current user does not have permission to view access for the given
+   *   Resource, this function will resolve to `null`.
+   *
+   * @param resourceUrl URL of the Resource you want to read the access for.
+   * @returns The access information to the Resource, sorted by Group.
+   * @since 1.5.0
+   * @deprecated Access Control Policies will no longer support vcard:Group. Use the mechanism-specific access API's if you want to define access for groups of people.
+   */
+  async function getGroupAccessAll(resourceUrl, options = internal_defaultFetchOptions) {
+      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
+      if (hasAccessibleAcr(resourceInfo)) {
+          const acpData = await internal_getPoliciesAndRules(resourceInfo, options);
+          return internal_getGroupAccessAll(acpData);
+      }
+      if (hasAccessibleAcl(resourceInfo)) {
+          return await getGroupAccessAll$1(resourceInfo, options);
+      }
+      return null;
+  }
+  /**
+   * Set access to a Resource for a specific Group.
+   *
+   * This function works with Solid Pods that implement either the Web Access
+   * Control spec or the Access Control Policies proposal, with some caveats:
+   *
+   * - If access to the given Resource has been set using anything other than the
+   *   functions in this module, it is possible that it has been set in a way that
+   *   prevents this function from reliably setting access, in which case it will
+   *   resolve to `null`.
+   * - It will only set access explicitly for the given Group. In other words,
+   *   additional restrictions could be present that further restrict or loosen
+   *   what access the given Group has in particular circumstances.
+   * - The provided access will only apply to the given Resource. In other words,
+   *   if the Resource is a Container, the configured Access may not apply to
+   *   contained Resources.
+   * - If the current user does not have permission to view or change access for
+   *   the given Resource, this function will resolve to `null`.
+   *
+   * Additionally, two caveats apply to users with a Pod server that uses WAC:
+   * - If the Resource did not have an ACL yet, a new one will be initialised.
+   *   This means that changes to the ACL of a parent Container can no longer
+   *   affect access people have to this Resource, although existing access will
+   *   be preserved.
+   * - Setting different values for `controlRead` and `controlWrite` is not
+   *   supported, and **will throw an error**. If you expect (some of) your users
+   *   to have Pods implementing WAC, be sure to pass the same value for both.
+   *
+   * @param resourceUrl URL of the Resource you want to change the Group's access to.
+   * @param groupUrl URL of the Group you want to set access for.
+   * @param access What access permissions you want to set for the given Group to the given Resource. Possible properties are `read`, `append`, `write`, `controlRead` and `controlWrite`: set to `true` to allow, to `false` to stop allowing, or `undefined` to leave unchanged. Take note that `controlRead` and `controlWrite` can not have distinct values for a Pod server implementing Web Access Control; trying this will throw an error.
+   * @returns What access has been set for the given Group explicitly.
+   * @since 1.5.0
+   * @deprecated Access Control Policies will no longer support vcard:Group. Use the mechanism-specific access API's if you want to define access for groups of people.
+   */
+  async function setGroupAccess(resourceUrl, groupUrl, access, options = internal_defaultFetchOptions) {
+      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
+      if (hasAccessibleAcr(resourceInfo)) {
+          const acpData = await internal_getPoliciesAndRules(resourceInfo, options);
+          const updatedResource = internal_setGroupAccess(resourceInfo, acpData, groupUrl, access);
+          if (updatedResource) {
+              try {
+                  await saveAcrFor(updatedResource, options);
+                  return getGroupAccess(resourceUrl, groupUrl, options);
+              }
+              catch (e) {
+                  return null;
+              }
+          }
+          return null;
+      }
+      if (hasAccessibleAcl(resourceInfo)) {
+          if (access.controlRead != access.controlWrite) {
+              throw new Error(`When setting access for a Resource in a Pod implementing Web Access Control (i.e. [${getSourceIri(resourceInfo)}]), ` + "`controlRead` and `controlWrite` should have the same value.");
+          }
+          const wacAccess = access;
+          await setGroupResourceAccess(resourceInfo, groupUrl, wacAccess, options);
+          return await getGroupAccess$1(resourceInfo, groupUrl, options);
+      }
+      return null;
+  }
+  /**
+   * Get an overview of what access is defined for everyone.
+   *
+   * This function works with Solid Pods that implement either the Web Access
+   * Control spec or the Access Control Policies proposal, with some caveats:
+   *
+   * - If access to the given Resource has been set using anything other than the
+   *   functions in this module, it is possible that it has been set in a way that
+   *   prevents this function from reliably reading access, in which case it will
+   *   resolve to `null`.
+   * - It will only return access specified explicitly for everyone. If
+   *   additional restrictions are set up to apply to users in a particular
+   *   situation, those will not be reflected in the return value of this
+   *   function.
+   * - It will only return access specified explicitly for the given Resource.
+   *   In other words, if the Resource is a Container, the returned Access may not
+   *   apply to contained Resources.
+   * - If the current user does not have permission to view access for the given
+   *   Resource, this function will resolve to `null`.
+   *
+   * @param resourceUrl URL of the Resource you want to read the access for.
+   * @since 1.5.0
+   */
+  async function getPublicAccess$1(resourceUrl, options = internal_defaultFetchOptions) {
+      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
+      if (hasAccessibleAcr(resourceInfo)) {
+          const acpData = await internal_getPoliciesAndRules(resourceInfo, options);
+          return internal_getPublicAccess(acpData);
+      }
+      if (hasAccessibleAcl(resourceInfo)) {
+          return await getPublicAccess$2(resourceInfo, options);
+      }
+      return null;
+  }
+  /**
+   * Set access to a Resource for everybody.
+   *
+   * This function works with Solid Pods that implement either the Web Access
+   * Control spec or the Access Control Policies proposal, with some caveats:
+   *
+   * - If access to the given Resource has been set using anything other than the
+   *   functions in this module, it is possible that it has been set in a way that
+   *   prevents this function from reliably setting access, in which case it will
+   *   resolve to `null`.
+   * - It will only set access explicitly for everybody. In other words,
+   *   additional restrictions could be present that further restrict or loosen
+   *   what access a user has in particular circumstances.
+   * - The provided access will only apply to the given Resource. In other words,
+   *   if the Resource is a Container, the configured Access may not apply to
+   *   contained Resources.
+   * - If the current user does not have permission to view or change access for
+   *   the given Resource, this function will resolve to `null`.
+   *
+   * Additionally, two caveats apply to users with a Pod server that uses WAC:
+   * - If the Resource did not have an ACL yet, a new one will be initialised.
+   *   This means that changes to the ACL of a parent Container can no longer
+   *   affect access people have to this Resource, although existing access will
+   *   be preserved.
+   * - Setting different values for `controlRead` and `controlWrite` is not
+   *   supported, and **will throw an error**. If you expect (some of) your users
+   *   to have Pods implementing WAC, be sure to pass the same value for both.
+   *
+   * @param resourceUrl URL of the Resource you want to change public access to.
+   * @param access What access permissions you want to set for everybody to the given Resource. Possible properties are `read`, `append`, `write`, `controlRead` and `controlWrite`: set to `true` to allow, to `false` to stop allowing, or `undefined` to leave unchanged. Take note that `controlRead` and `controlWrite` can not have distinct values for a Pod server implementing Web Access Control; trying this will throw an error.
+   * @returns What access has been set for everybody explicitly.
+   * @since 1.5.0
+   */
+  async function setPublicAccess$1(resourceUrl, access, options = internal_defaultFetchOptions) {
+      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
+      if (hasAccessibleAcr(resourceInfo)) {
+          const acpData = await internal_getPoliciesAndRules(resourceInfo, options);
+          const updatedResource = internal_setPublicAccess(resourceInfo, acpData, access);
+          if (updatedResource) {
+              try {
+                  await saveAcrFor(updatedResource, options);
+                  return getPublicAccess$1(resourceUrl, options);
+              }
+              catch (e) {
+                  return null;
+              }
+          }
+          return null;
+      }
+      if (hasAccessibleAcl(resourceInfo)) {
+          if (access.controlRead != access.controlWrite) {
+              throw new Error(`When setting access for a Resource in a Pod implementing Web Access Control (i.e. [${getSourceIri(resourceInfo)}]), ` + "`controlRead` and `controlWrite` should have the same value.");
+          }
+          const wacAccess = access;
+          await setPublicResourceAccess(resourceInfo, wacAccess, options);
+          return await getPublicAccess$2(resourceInfo, options);
+      }
+      return null;
+  }
+
+  var universal_v1 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    getAgentAccess: getAgentAccess$1,
+    setAgentAccess: setAgentAccess$1,
+    getAgentAccessAll: getAgentAccessAll$1,
+    getGroupAccess: getGroupAccess,
+    getGroupAccessAll: getGroupAccessAll,
+    setGroupAccess: setGroupAccess,
+    getPublicAccess: getPublicAccess$1,
+    setPublicAccess: setPublicAccess$1,
+    getAccessFor: getAccessFor,
+    getAccessForAll: getAccessForAll,
+    setAccessFor: setAccessFor
+  });
+
+  /**
+   * Copyright 2021 Inrupt Inc.
+   *
+   * Permission is hereby granted, free of charge, to any person obtaining a copy
+   * of this software and associated documentation files (the "Software"), to deal in
+   * the Software without restriction, including without limitation the rights to use,
+   * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   * Software, and to permit persons to whom the Software is furnished to do so,
+   * subject to the following conditions:
+   *
+   * The above copyright notice and this permission notice shall be included in
+   * all copies or substantial portions of the Software.
+   *
+   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   */
+
+  var universal = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    getAccessFor: getAccessFor,
+    getAccessForAll: getAccessForAll,
+    setAccessFor: setAccessFor,
+    getAgentAccess: getAgentAccess$1,
+    setAgentAccess: setAgentAccess$1,
+    getAgentAccessAll: getAgentAccessAll$1,
+    getGroupAccess: getGroupAccess,
+    getGroupAccessAll: getGroupAccessAll,
+    setGroupAccess: setGroupAccess,
+    getPublicAccess: getPublicAccess$1,
+    setPublicAccess: setPublicAccess$1
+  });
+
+  /**
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -10366,7 +13506,7 @@ var SolidClient = (function (exports) {
           if (typeof actor !== "string") {
               throw new Error("When reading Agent-specific access, the given agent cannot be left undefined.");
           }
-          return await getAgentAccess(resourceUrl, actor, options);
+          return await getAgentAccess$1(resourceUrl, actor, options);
       }
       if (actorType === "group") {
           if (typeof actor !== "string") {
@@ -10378,7 +13518,7 @@ var SolidClient = (function (exports) {
           if (typeof actor === "string") {
               throw new Error(`When reading public access, no actor type should be specified (here [${actor}]).`);
           }
-          return await getPublicAccess(resourceUrl, actor);
+          return await getPublicAccess$1(resourceUrl, actor);
       }
       return null;
   }
@@ -10410,7 +13550,7 @@ var SolidClient = (function (exports) {
    */
   async function getAccessForAll(resourceUrl, actorType, options = internal_defaultFetchOptions) {
       if (actorType === "agent") {
-          return await getAgentAccessAll(resourceUrl, options);
+          return await getAgentAccessAll$1(resourceUrl, options);
       }
       if (actorType === "group") {
           return await getGroupAccessAll(resourceUrl, options);
@@ -10422,7 +13562,7 @@ var SolidClient = (function (exports) {
           if (typeof actor !== "string") {
               throw new Error("When writing Agent-specific access, the given agent cannot be left undefined.");
           }
-          return await setAgentAccess(resourceUrl, actor, access, options);
+          return await setAgentAccess$1(resourceUrl, actor, access, options);
       }
       if (actorType === "group") {
           if (typeof actor !== "string") {
@@ -10434,13 +13574,13 @@ var SolidClient = (function (exports) {
           if (typeof actor === "string") {
               throw new Error(`When writing public access, no actor type should be specified (here [${actor}]).`);
           }
-          return await setPublicAccess(resourceUrl, access, actor);
+          return await setPublicAccess$1(resourceUrl, access, actor);
       }
       return null;
   }
 
   /**
-   * Copyright 2020 Inrupt Inc.
+   * Copyright 2021 Inrupt Inc.
    *
    * Permission is hereby granted, free of charge, to any person obtaining a copy
    * of this software and associated documentation files (the "Software"), to deal in
@@ -10486,10 +13626,11 @@ var SolidClient = (function (exports) {
   async function getAgentAccess(resourceUrl, webId, options = internal_defaultFetchOptions) {
       const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
       if (hasAccessibleAcr(resourceInfo)) {
-          return internal_getAgentAccess(resourceInfo, webId);
+          const acpData = await internal_getPoliciesAndMatchers(resourceInfo, options);
+          return internal_getAgentAccess$1(acpData, webId);
       }
       if (hasAccessibleAcl(resourceInfo)) {
-          return await getAgentAccess$1(resourceInfo, webId, options);
+          return await getAgentAccess$2(resourceInfo, webId, options);
       }
       return null;
   }
@@ -10530,11 +13671,12 @@ var SolidClient = (function (exports) {
   async function setAgentAccess(resourceUrl, webId, access, options = internal_defaultFetchOptions) {
       const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
       if (hasAccessibleAcr(resourceInfo)) {
-          const updatedResource = internal_setAgentAccess(resourceInfo, webId, access);
+          const acpData = await internal_getPoliciesAndMatchers(resourceInfo, options);
+          const updatedResource = internal_setAgentAccess$1(resourceInfo, acpData, webId, access);
           if (updatedResource) {
               try {
                   await saveAcrFor(updatedResource, options);
-                  return internal_getAgentAccess(updatedResource, webId);
+                  return await getAgentAccess(resourceUrl, webId, options);
               }
               catch (e) {
                   return null;
@@ -10548,7 +13690,7 @@ var SolidClient = (function (exports) {
           }
           const wacAccess = access;
           await setAgentResourceAccess(resourceInfo, webId, wacAccess, options);
-          return await getAgentAccess$1(resourceInfo, webId, options);
+          return await getAgentAccess$2(resourceInfo, webId, options);
       }
       return null;
   }
@@ -10580,138 +13722,11 @@ var SolidClient = (function (exports) {
   async function getAgentAccessAll(resourceUrl, options = internal_defaultFetchOptions) {
       const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
       if (hasAccessibleAcr(resourceInfo)) {
-          return internal_getAgentAccessAll(resourceInfo);
+          const acpData = await internal_getPoliciesAndMatchers(resourceInfo, options);
+          return internal_getAgentAccessAll$1(acpData);
       }
       if (hasAccessibleAcl(resourceInfo)) {
-          return await getAgentAccessAll$1(resourceInfo, options);
-      }
-      return null;
-  }
-  /**
-   * Get an overview of what access is defined for a given Group.
-   *
-   * This function works with Solid Pods that implement either the Web Access
-   * Control spec or the Access Control Policies proposal, with some caveats:
-   *
-   * - If access to the given Resource has been set using anything other than the
-   *   functions in this module, it is possible that it has been set in a way that
-   *   prevents this function from reliably reading access, in which case it will
-   *   resolve to `null`.
-   * - It will only return access specified explicitly for the given Group. If
-   *   additional restrictions are set up to apply to the given Group in a
-   *   particular situation, those will not be reflected in the return value of
-   *   this function.
-   * - It will only return access specified explicitly for the given Resource.
-   *   In other words, if the Resource is a Container, the returned Access may not
-   *   apply to contained Resources.
-   * - If the current user does not have permission to view access for the given
-   *   Resource, this function will resolve to `null`.
-   *
-   * @param resourceUrl URL of the Resource you want to read the access for.
-   * @param webId WebID of the Group you want to get the access for.
-   * @since 1.5.0
-   */
-  async function getGroupAccess(resourceUrl, webId, options = internal_defaultFetchOptions) {
-      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
-      if (hasAccessibleAcr(resourceInfo)) {
-          return internal_getGroupAccess(resourceInfo, webId);
-      }
-      if (hasAccessibleAcl(resourceInfo)) {
-          return await getGroupAccess$1(resourceInfo, webId, options);
-      }
-      return null;
-  }
-  /**
-   * Get an overview of what access is defined for all Groups with respect to a given
-   * Resource.
-   *
-   * This function works with Solid Pods that implement either the Web Access
-   * Control spec or the Access Control Policies proposal, with some caveats:
-   *
-   * - If access to the given Resource has been set using anything other than the
-   *   functions in this module, it is possible that it has been set in a way that
-   *   prevents this function from reliably reading access, in which case it will
-   *   resolve to `null`.
-   * - It will only return access specified explicitly for the returned Groups. If
-   *   additional restrictions are set up to apply to the listed Groups in a
-   *   particular situation, those will not be reflected in the return value of
-   *   this function.
-   * - It will only return access specified explicitly for the given Resource.
-   *   In other words, if the Resource is a Container, the returned Access may not
-   *   apply to contained Resources.
-   * - If the current user does not have permission to view access for the given
-   *   Resource, this function will resolve to `null`.
-   *
-   * @param resourceUrl URL of the Resource you want to read the access for.
-   * @returns The access information to the Resource, sorted by Group.
-   * @since 1.5.0
-   */
-  async function getGroupAccessAll(resourceUrl, options = internal_defaultFetchOptions) {
-      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
-      if (hasAccessibleAcr(resourceInfo)) {
-          return internal_getGroupAccessAll(resourceInfo);
-      }
-      if (hasAccessibleAcl(resourceInfo)) {
-          return await getGroupAccessAll$1(resourceInfo, options);
-      }
-      return null;
-  }
-  /**
-   * Set access to a Resource for a specific Group.
-   *
-   * This function works with Solid Pods that implement either the Web Access
-   * Control spec or the Access Control Policies proposal, with some caveats:
-   *
-   * - If access to the given Resource has been set using anything other than the
-   *   functions in this module, it is possible that it has been set in a way that
-   *   prevents this function from reliably setting access, in which case it will
-   *   resolve to `null`.
-   * - It will only set access explicitly for the given Group. In other words,
-   *   additional restrictions could be present that further restrict or loosen
-   *   what access the given Group has in particular circumstances.
-   * - The provided access will only apply to the given Resource. In other words,
-   *   if the Resource is a Container, the configured Access may not apply to
-   *   contained Resources.
-   * - If the current user does not have permission to view or change access for
-   *   the given Resource, this function will resolve to `null`.
-   *
-   * Additionally, two caveats apply to users with a Pod server that uses WAC:
-   * - If the Resource did not have an ACL yet, a new one will be initialised.
-   *   This means that changes to the ACL of a parent Container can no longer
-   *   affect access people have to this Resource, although existing access will
-   *   be preserved.
-   * - Setting different values for `controlRead` and `controlWrite` is not
-   *   supported, and **will throw an error**. If you expect (some of) your users
-   *   to have Pods implementing WAC, be sure to pass the same value for both.
-   *
-   * @param resourceUrl URL of the Resource you want to change the Group's access to.
-   * @param groupUrl URL of the Group you want to set access for.
-   * @param access What access permissions you want to set for the given Group to the given Resource. Possible properties are `read`, `append`, `write`, `controlRead` and `controlWrite`: set to `true` to allow, to `false` to stop allowing, or `undefined` to leave unchanged. Take note that `controlRead` and `controlWrite` can not have distinct values for a Pod server implementing Web Access Control; trying this will throw an error.
-   * @returns What access has been set for the given Group explicitly.
-   * @since 1.5.0
-   */
-  async function setGroupAccess(resourceUrl, groupUrl, access, options = internal_defaultFetchOptions) {
-      const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
-      if (hasAccessibleAcr(resourceInfo)) {
-          const updatedResource = internal_setGroupAccess(resourceInfo, groupUrl, access);
-          if (updatedResource) {
-              try {
-                  await saveAcrFor(updatedResource, options);
-                  return internal_getGroupAccess(updatedResource, groupUrl);
-              }
-              catch (e) {
-                  return null;
-              }
-          }
-          return null;
-      }
-      if (hasAccessibleAcl(resourceInfo)) {
-          if (access.controlRead != access.controlWrite) {
-              throw new Error(`When setting access for a Resource in a Pod implementing Web Access Control (i.e. [${getSourceIri(resourceInfo)}]), ` + "`controlRead` and `controlWrite` should have the same value.");
-          }
-          const wacAccess = access;
-          await setGroupResourceAccess(resourceInfo, groupUrl, wacAccess, options);
-          return await getGroupAccess$1(resourceInfo, groupUrl, options);
+          return await getAgentAccessAll$2(resourceInfo, options);
       }
       return null;
   }
@@ -10741,10 +13756,11 @@ var SolidClient = (function (exports) {
   async function getPublicAccess(resourceUrl, options = internal_defaultFetchOptions) {
       const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
       if (hasAccessibleAcr(resourceInfo)) {
-          return internal_getPublicAccess(resourceInfo);
+          const acpData = await internal_getPoliciesAndMatchers(resourceInfo, options);
+          return internal_getPublicAccess$1(acpData);
       }
       if (hasAccessibleAcl(resourceInfo)) {
-          return await getPublicAccess$1(resourceInfo, options);
+          return await getPublicAccess$2(resourceInfo, options);
       }
       return null;
   }
@@ -10784,11 +13800,12 @@ var SolidClient = (function (exports) {
   async function setPublicAccess(resourceUrl, access, options = internal_defaultFetchOptions) {
       const resourceInfo = await getResourceInfoWithAcr(resourceUrl, options);
       if (hasAccessibleAcr(resourceInfo)) {
-          const updatedResource = internal_setPublicAccess(resourceInfo, access);
+          const acpData = await internal_getPoliciesAndMatchers(resourceInfo, options);
+          const updatedResource = internal_setPublicAccess$1(resourceInfo, acpData, access);
           if (updatedResource) {
               try {
                   await saveAcrFor(updatedResource, options);
-                  return internal_getPublicAccess(updatedResource);
+                  return getPublicAccess(resourceUrl, options);
               }
               catch (e) {
                   return null;
@@ -10802,19 +13819,16 @@ var SolidClient = (function (exports) {
           }
           const wacAccess = access;
           await setPublicResourceAccess(resourceInfo, wacAccess, options);
-          return await getPublicAccess$1(resourceInfo, options);
+          return await getPublicAccess$2(resourceInfo, options);
       }
       return null;
   }
 
-  var universal = /*#__PURE__*/Object.freeze({
+  var universal_v2 = /*#__PURE__*/Object.freeze({
     __proto__: null,
     getAgentAccess: getAgentAccess,
     setAgentAccess: setAgentAccess,
     getAgentAccessAll: getAgentAccessAll,
-    getGroupAccess: getGroupAccess,
-    getGroupAccessAll: getGroupAccessAll,
-    setGroupAccess: setGroupAccess,
     getPublicAccess: getPublicAccess,
     setPublicAccess: setPublicAccess,
     getAccessFor: getAccessFor,
@@ -10863,6 +13877,8 @@ var SolidClient = (function (exports) {
     : cb => (promise || (promise = Promise.resolve()))
       .then(cb)
       .catch(err => setTimeout(() => { throw err }, 0));
+
+  var queueMicrotask$1 = queueMicrotask_1;
 
   // **N3Lexer** tokenizes N3 documents.
 
@@ -11293,6 +14309,11 @@ var SolidClient = (function (exports) {
       return err;
     }
 
+    // ### Strips off any starting UTF BOM mark.
+    _readStartingBom(input) {
+      return input.startsWith('\ufeff') ? input.substr(1) : input;
+    }
+
     // ## Public methods
 
     // ### `tokenize` starts the transformation of an N3 document into an array of tokens.
@@ -11302,10 +14323,10 @@ var SolidClient = (function (exports) {
 
       // If the input is a string, continuously emit tokens through the callback until the end
       if (typeof input === 'string') {
-        this._input = input;
+        this._input = this._readStartingBom(input);
         // If a callback was passed, asynchronously call it
         if (typeof callback === 'function')
-          queueMicrotask_1(() => this._tokenizeToEnd(callback, true));
+          queueMicrotask$1(() => this._tokenizeToEnd(callback, true));
         // If no callback was passed, tokenize synchronously and return
         else {
           const tokens = [];
@@ -11317,7 +14338,6 @@ var SolidClient = (function (exports) {
       }
       // Otherwise, the input must be a stream
       else {
-        this._input = '';
         this._pendingBuffer = null;
         if (typeof input.setEncoding === 'function')
           input.setEncoding('utf8');
@@ -11335,14 +14355,18 @@ var SolidClient = (function (exports) {
             }
             // Otherwise, tokenize as far as possible
             else {
-              this._input += data;
+              // Only read a BOM at the start
+              if (typeof this._input === 'undefined')
+                this._input = this._readStartingBom(typeof data === 'string' ? data : data.toString());
+              else
+                this._input += data;
               this._tokenizeToEnd(callback, false);
             }
           }
         });
         // Parses until the end
         input.on('end', () => {
-          if (this._input !== null)
+          if (typeof this._input === 'string')
             this._tokenizeToEnd(callback, true);
         });
         input.on('error', callback);
@@ -11394,7 +14418,7 @@ var SolidClient = (function (exports) {
     for (const prefix in defaultPrefixes)
       processPrefix(prefix, defaultPrefixes[prefix]);
     // Set the default factory if none was specified
-    factory = factory || DataFactory;
+    factory = factory || N3DataFactory;
 
     // Registers a new prefix (if an IRI was specified)
     // or retrieves a function that expands an existing prefix (if no IRI was specified)
@@ -11447,6 +14471,7 @@ var SolidClient = (function (exports) {
     quad,
     triple: quad,
   };
+  var N3DataFactory = DataFactory;
 
   // ## Term constructor
   class Term {
@@ -11685,10 +14710,10 @@ var SolidClient = (function (exports) {
   class Quad extends Term {
     constructor(subject, predicate, object, graph) {
       super('');
-      this.subject   = subject;
-      this.predicate = predicate;
-      this.object    = object;
-      this.graph     = graph || DEFAULTGRAPH$1;
+      this._subject   = subject;
+      this._predicate = predicate;
+      this._object    = object;
+      this._graph     = graph || DEFAULTGRAPH$1;
     }
 
     // ### The term type of this term
@@ -11696,23 +14721,39 @@ var SolidClient = (function (exports) {
       return 'Quad';
     }
 
+    get subject() {
+      return this._subject;
+    }
+
+    get predicate() {
+      return this._predicate;
+    }
+
+    get object() {
+      return this._object;
+    }
+
+    get graph() {
+      return this._graph;
+    }
+
     // ### Returns a plain object representation of this quad
     toJSON() {
       return {
         termType:  this.termType,
-        subject:   this.subject.toJSON(),
-        predicate: this.predicate.toJSON(),
-        object:    this.object.toJSON(),
-        graph:     this.graph.toJSON(),
+        subject:   this._subject.toJSON(),
+        predicate: this._predicate.toJSON(),
+        object:    this._object.toJSON(),
+        graph:     this._graph.toJSON(),
       };
     }
 
     // ### Returns whether this object represents the same quad as the other
     equals(other) {
-      return !!other && this.subject.equals(other.subject)     &&
-                        this.predicate.equals(other.predicate) &&
-                        this.object.equals(other.object)       &&
-                        this.graph.equals(other.graph);
+      return !!other && this._subject.equals(other.subject)     &&
+                        this._predicate.equals(other.predicate) &&
+                        this._object.equals(other.object)       &&
+                        this._graph.equals(other.graph);
     }
   }
 
@@ -12821,11 +15862,11 @@ var SolidClient = (function (exports) {
     };
     parser.QUANTIFIERS_GRAPH = namedNode('urn:n3:quantifiers');
   }
-  initDataFactory(N3Parser.prototype, DataFactory);
+  initDataFactory(N3Parser.prototype, N3DataFactory);
 
   // **N3Writer** writes N3 documents.
 
-  const DEFAULTGRAPH = DataFactory.defaultGraph();
+  const DEFAULTGRAPH = N3DataFactory.defaultGraph();
 
   const { rdf, xsd } = namespaces;
 
@@ -16617,6 +19658,8 @@ var SolidClient = (function (exports) {
     return String(val).toLowerCase() === 'true';
   }
 
+  var require$$2 = _stream_duplex;
+
   var _stream_writable = Writable;
   // there will be only 2 of these for each stream
 
@@ -16686,7 +19729,7 @@ var SolidClient = (function (exports) {
   function nop() {}
 
   function WritableState(options, stream, isDuplex) {
-    Duplex$2 = Duplex$2 || _stream_duplex;
+    Duplex$2 = Duplex$2 || require$$2;
     options = options || {}; // Duplex streams are both readable and writable, but share
     // the same options object.
     // However, some cases require setting options to different
@@ -16812,7 +19855,7 @@ var SolidClient = (function (exports) {
   }
 
   function Writable(options) {
-    Duplex$2 = Duplex$2 || _stream_duplex; // Writable ctor is applied to Duplexes, too.
+    Duplex$2 = Duplex$2 || require$$2; // Writable ctor is applied to Duplexes, too.
     // `realHasInstance` is necessary because using plain `instanceof`
     // would return false, as no `_writableState` property is attached.
     // Trying to use the custom `instanceof` for Writable here will also break the
@@ -17281,6 +20324,8 @@ var SolidClient = (function (exports) {
     cb(err);
   };
 
+  var require$$0 = _stream_readable;
+
   /*<replacement>*/
 
   var objectKeys = Object.keys || function (obj) {
@@ -17301,7 +20346,7 @@ var SolidClient = (function (exports) {
 
 
 
-  inherits_browser(Duplex$1, _stream_readable);
+  inherits_browser(Duplex$1, require$$0);
 
   {
     // Allow the keys array to be GC'ed.
@@ -17315,7 +20360,7 @@ var SolidClient = (function (exports) {
 
   function Duplex$1(options) {
     if (!(this instanceof Duplex$1)) return new Duplex$1(options);
-    _stream_readable.call(this, options);
+    require$$0.call(this, options);
     _stream_writable.call(this, options);
     this.allowHalfOpen = true;
 
@@ -18133,7 +21178,7 @@ var SolidClient = (function (exports) {
   }
 
   function ReadableState(options, stream, isDuplex) {
-    Duplex = Duplex || _stream_duplex;
+    Duplex = Duplex || require$$2;
     options = options || {}; // Duplex streams are both readable and writable, but share
     // the same options object.
     // However, some cases require setting options to different
@@ -18196,7 +21241,7 @@ var SolidClient = (function (exports) {
   }
 
   function Readable(options) {
-    Duplex = Duplex || _stream_duplex;
+    Duplex = Duplex || require$$2;
     if (!(this instanceof Readable)) return new Readable(options); // Checking for a Stream.Duplex instance is faster here instead of inside
     // the ReadableState constructor, at least with V8 6.5
 
@@ -19161,7 +22206,7 @@ var SolidClient = (function (exports) {
 
 
 
-  inherits_browser(Transform, _stream_duplex);
+  inherits_browser(Transform, require$$2);
 
   function afterTransform(er, data) {
     var ts = this._transformState;
@@ -19187,7 +22232,7 @@ var SolidClient = (function (exports) {
 
   function Transform(options) {
     if (!(this instanceof Transform)) return new Transform(options);
-    _stream_duplex.call(this, options);
+    require$$2.call(this, options);
     this._transformState = {
       afterTransform: afterTransform.bind(this),
       needTransform: false,
@@ -19226,7 +22271,7 @@ var SolidClient = (function (exports) {
 
   Transform.prototype.push = function (chunk, encoding) {
     this._transformState.needTransform = false;
-    return _stream_duplex.prototype.push.call(this, chunk, encoding);
+    return require$$2.prototype.push.call(this, chunk, encoding);
   }; // This is the part where you do stuff!
   // override this function in implementation classes.
   // 'chunk' is an input chunk.
@@ -19273,7 +22318,7 @@ var SolidClient = (function (exports) {
   };
 
   Transform.prototype._destroy = function (err, cb) {
-    _stream_duplex.prototype._destroy.call(this, err, function (err2) {
+    require$$2.prototype._destroy.call(this, err, function (err2) {
       cb(err2);
     });
   };
@@ -19400,11 +22445,11 @@ var SolidClient = (function (exports) {
   var pipeline_1 = pipeline;
 
   var readableBrowser = createCommonjsModule(function (module, exports) {
-  exports = module.exports = _stream_readable;
+  exports = module.exports = require$$0;
   exports.Stream = exports;
   exports.Readable = exports;
   exports.Writable = _stream_writable;
-  exports.Duplex = _stream_duplex;
+  exports.Duplex = require$$2;
   exports.Transform = _stream_transform;
   exports.PassThrough = _stream_passthrough;
   exports.finished = endOfStream;
@@ -19433,7 +22478,7 @@ var SolidClient = (function (exports) {
       if (!options && quads && !quads[0])
         options = quads, quads = null;
       options = options || {};
-      this._factory = options.factory || DataFactory;
+      this._factory = options.factory || N3DataFactory;
 
       // Add quads if passed
       if (quads)
@@ -19621,6 +22666,14 @@ var SolidClient = (function (exports) {
 
     // ## Public methods
 
+    // ### `add` adds the specified quad to the dataset.
+    // Returns the dataset instance it was called on.
+    // Existing quads, as defined in Quad.equals, will be ignored.
+    add(quad) {
+      this.addQuad(quad);
+      return this;
+    }
+
     // ### `addQuad` adds a new quad to the store.
     // Returns if the quad index has changed, if the quad did not already exist.
     addQuad(subject, predicate, object, graph) {
@@ -19667,6 +22720,20 @@ var SolidClient = (function (exports) {
     addQuads(quads) {
       for (let i = 0; i < quads.length; i++)
         this.addQuad(quads[i]);
+    }
+
+    // ### `delete` removes the specified quad from the dataset.
+    // Returns the dataset instance it was called on.
+    delete(quad) {
+      this.removeQuad(quad);
+      return this;
+    }
+
+    // ### `has` determines whether a dataset includes a certain quad.
+    // Returns true or false as appropriate.
+    has(quad) {
+      const quads = this.getQuads(quad.subject, quad.predicate, quad.object, quad.graph);
+      return quads.length !== 0;
     }
 
     // ### `import` adds a stream of quads to the store
@@ -19726,7 +22793,15 @@ var SolidClient = (function (exports) {
     // ### `removeMatches` removes all matching quads from the store
     // Setting any field to `undefined` or `null` indicates a wildcard.
     removeMatches(subject, predicate, object, graph) {
-      return this.remove(this.match(subject, predicate, object, graph));
+      const stream = new readableBrowser.Readable({ objectMode: true });
+
+      stream._read = () => {
+        for (const quad of this.getQuads(subject, predicate, object, graph))
+          stream.push(quad);
+        stream.push(null);
+      };
+
+      return this.remove(stream);
     }
 
     // ### `deleteGraph` removes all triples with the given graph from the store
@@ -19783,19 +22858,14 @@ var SolidClient = (function (exports) {
       return quads;
     }
 
-    // ### `match` returns a stream of quads matching a pattern.
+    // ### `match` returns a new dataset that is comprised of all quads in the current instance matching the given arguments.
+    // The logic described in Quad Matching is applied for each quad in this dataset to check if it should be included in the output dataset.
+    // Note: This method always returns a new DatasetCore, even if that dataset contains no quads.
+    // Note: Since a DatasetCore is an unordered set, the order of the quads within the returned sequence is arbitrary.
     // Setting any field to `undefined` or `null` indicates a wildcard.
+    // For backwards compatibility, the object return also implements the Readable stream interface.
     match(subject, predicate, object, graph) {
-      const stream = new readableBrowser.Readable({ objectMode: true });
-
-      // Initialize stream once it is being read
-      stream._read = () => {
-        for (const quad of this.getQuads(subject, predicate, object, graph))
-          stream.push(quad);
-        stream.push(null);
-      };
-
-      return stream;
+      return new DatasetCoreAndReadableStream(this, subject, predicate, object, graph);
     }
 
     // ### `countQuads` returns the number of quads matching a pattern.
@@ -20200,11 +23270,66 @@ var SolidClient = (function (exports) {
         this.removeQuads(toRemove);
       return lists;
     }
+
+    // ### Store is an iterable.
+    // Can be used where iterables are expected: for...of loops, array spread operator,
+    // `yield*`, and destructuring assignment (order is not guaranteed).
+    *[Symbol.iterator]() {
+      yield* this.getQuads();
+    }
   }
 
   // Determines whether the argument is a string
   function isString(s) {
     return typeof s === 'string' || s instanceof String;
+  }
+
+  /**
+   * A class that implements both DatasetCore and Readable.
+   */
+  class DatasetCoreAndReadableStream extends readableBrowser.Readable {
+    constructor(n3Store, subject, predicate, object, graph) {
+      super({ objectMode: true });
+      Object.assign(this, { n3Store, subject, predicate, object, graph });
+    }
+
+    get filtered() {
+      if (!this._filtered) {
+        const { n3Store, graph, object, predicate, subject } = this;
+        const quads = n3Store.getQuads(subject, predicate, object, graph);
+        this._filtered = new N3Store(quads, { factory: n3Store._factory });
+      }
+      return this._filtered;
+    }
+    get size() {
+      return this.filtered.size;
+    }
+
+    _read() {
+      for (const quad of this.filtered.getQuads())
+        this.push(quad);
+      this.push(null);
+    }
+
+    add(quad) {
+      return this.filtered.add(quad);
+    }
+
+    delete(quad) {
+      return this.filtered.delete(quad);
+    }
+
+    has(quad) {
+      return this.filtered.has(quad);
+    }
+
+    match(subject, predicate, object, graph) {
+      return new DatasetCoreAndReadableStream(this.filtered, subject, predicate, object, graph);
+    }
+
+    *[Symbol.iterator]() {
+      yield* this.filtered.getQuads();
+    }
   }
 
   // **N3StreamParser** parses a text stream into a quad stream.
@@ -20283,7 +23408,7 @@ var SolidClient = (function (exports) {
     StreamParser: N3StreamParser,
     StreamWriter: N3StreamWriter,
     Util: N3Util,
-    DataFactory: DataFactory,
+    DataFactory: N3DataFactory,
     Term: Term,
     NamedNode: NamedNode,
     Literal: Literal,
@@ -20300,10 +23425,14 @@ var SolidClient = (function (exports) {
   exports.SolidClientError = SolidClientError;
   exports.ThingExpectedError = ThingExpectedError;
   exports.access = universal;
+  exports.access_v1 = universal_v1;
+  exports.access_v2 = universal_v2;
   exports.acp_v1 = acp_v1;
   exports.acp_v2 = acp_v2;
   exports.acp_v3 = acp_v3;
+  exports.acp_v4 = acp_v4;
   exports.addBoolean = addBoolean;
+  exports.addDate = addDate;
   exports.addDatetime = addDatetime;
   exports.addDecimal = addDecimal;
   exports.addInteger = addInteger;
@@ -20315,9 +23444,11 @@ var SolidClient = (function (exports) {
   exports.addStringNoLocale = addStringNoLocale;
   exports.addStringWithLocale = addStringWithLocale;
   exports.addTerm = addTerm;
+  exports.addTime = addTime;
   exports.addUrl = addUrl;
   exports.asIri = asIri;
   exports.asUrl = asUrl;
+  exports.buildThing = buildThing;
   exports.changeLogAsMarkdown = changeLogAsMarkdown;
   exports.createAcl = createAcl;
   exports.createAclFromFallbackAcl = createAclFromFallbackAcl;
@@ -20329,8 +23460,9 @@ var SolidClient = (function (exports) {
   exports.deleteContainer = deleteContainer;
   exports.deleteFile = deleteFile;
   exports.deleteSolidDataset = deleteSolidDataset;
-  exports.getAgentAccess = getAgentAccess$2;
-  exports.getAgentAccessAll = getAgentAccessAll$2;
+  exports.fromRdfJsDataset = fromRdfJsDataset;
+  exports.getAgentAccess = getAgentAccess$3;
+  exports.getAgentAccessAll = getAgentAccessAll$3;
   exports.getAgentDefaultAccess = getAgentDefaultAccess;
   exports.getAgentDefaultAccessAll = getAgentDefaultAccessAll;
   exports.getAgentResourceAccess = getAgentResourceAccess;
@@ -20339,10 +23471,13 @@ var SolidClient = (function (exports) {
   exports.getBooleanAll = getBooleanAll;
   exports.getContainedResourceUrlAll = getContainedResourceUrlAll;
   exports.getContentType = getContentType$1;
+  exports.getDate = getDate;
+  exports.getDateAll = getDateAll;
   exports.getDatetime = getDatetime;
   exports.getDatetimeAll = getDatetimeAll;
   exports.getDecimal = getDecimal;
   exports.getDecimalAll = getDecimalAll;
+  exports.getEffectiveAccess = getEffectiveAccess;
   exports.getFallbackAcl = getFallbackAcl;
   exports.getFile = getFile;
   exports.getFileWithAcl = getFileWithAcl;
@@ -20356,12 +23491,14 @@ var SolidClient = (function (exports) {
   exports.getIntegerAll = getIntegerAll;
   exports.getIri = getIri;
   exports.getIriAll = getIriAll;
+  exports.getLinkedResourceUrlAll = getLinkedResourceUrlAll;
   exports.getLiteral = getLiteral;
   exports.getLiteralAll = getLiteralAll;
   exports.getNamedNode = getNamedNode;
   exports.getNamedNodeAll = getNamedNodeAll;
   exports.getPodOwner = getPodOwner;
-  exports.getPublicAccess = getPublicAccess$2;
+  exports.getPropertyAll = getPropertyAll;
+  exports.getPublicAccess = getPublicAccess$3;
   exports.getPublicDefaultAccess = getPublicDefaultAccess;
   exports.getPublicResourceAccess = getPublicResourceAccess;
   exports.getResourceAcl = getResourceAcl;
@@ -20380,6 +23517,8 @@ var SolidClient = (function (exports) {
   exports.getTermAll = getTermAll;
   exports.getThing = getThing;
   exports.getThingAll = getThingAll;
+  exports.getTime = getTime;
+  exports.getTimeAll = getTimeAll;
   exports.getUrl = getUrl;
   exports.getUrlAll = getUrlAll;
   exports.hasAccessibleAcl = hasAccessibleAcl;
@@ -20392,6 +23531,7 @@ var SolidClient = (function (exports) {
   exports.isPodOwner = isPodOwner;
   exports.isRawData = isRawData;
   exports.isThing = isThing;
+  exports.isThingLocal = isThingLocal;
   exports.mockContainerFrom = mockContainerFrom;
   exports.mockFetchError = mockFetchError;
   exports.mockFileFrom = mockFileFrom;
@@ -20400,6 +23540,7 @@ var SolidClient = (function (exports) {
   exports.overwriteFile = overwriteFile;
   exports.removeAll = removeAll;
   exports.removeBoolean = removeBoolean;
+  exports.removeDate = removeDate;
   exports.removeDatetime = removeDatetime;
   exports.removeDecimal = removeDecimal;
   exports.removeInteger = removeInteger;
@@ -20409,7 +23550,10 @@ var SolidClient = (function (exports) {
   exports.removeStringNoLocale = removeStringNoLocale;
   exports.removeStringWithLocale = removeStringWithLocale;
   exports.removeThing = removeThing;
+  exports.removeTime = removeTime;
   exports.removeUrl = removeUrl;
+  exports.responseToResourceInfo = responseToResourceInfo;
+  exports.responseToSolidDataset = responseToSolidDataset;
   exports.saveAclFor = saveAclFor;
   exports.saveFileInContainer = saveFileInContainer;
   exports.saveSolidDatasetAt = saveSolidDatasetAt;
@@ -20417,6 +23561,7 @@ var SolidClient = (function (exports) {
   exports.setAgentDefaultAccess = setAgentDefaultAccess;
   exports.setAgentResourceAccess = setAgentResourceAccess$1;
   exports.setBoolean = setBoolean;
+  exports.setDate = setDate;
   exports.setDatetime = setDatetime;
   exports.setDecimal = setDecimal;
   exports.setGroupDefaultAccess = setGroupDefaultAccess;
@@ -20431,9 +23576,11 @@ var SolidClient = (function (exports) {
   exports.setStringWithLocale = setStringWithLocale;
   exports.setTerm = setTerm;
   exports.setThing = setThing;
+  exports.setTime = setTime;
   exports.setUrl = setUrl;
   exports.solidDatasetAsMarkdown = solidDatasetAsMarkdown;
   exports.thingAsMarkdown = thingAsMarkdown;
+  exports.toRdfJsDataset = toRdfJsDataset;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
